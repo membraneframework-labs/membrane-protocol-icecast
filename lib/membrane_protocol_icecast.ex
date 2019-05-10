@@ -1,4 +1,4 @@
-defmodule Membrane.Server.Icecast do
+defmodule Membrane.Protocol.Icecast do
   @doc """
   Returns this application's version.
   """

@@ -1,4 +1,4 @@
-defmodule Membrane.Server.Icecast.Input.Machine do
+defmodule Membrane.Protocol.Icecast.Input.Machine do
   @moduledoc """
   This module implements a state machine that is capable of parsing an input
   stream in the [Icecast2](http://www.icecast.org)-compatible protocol.

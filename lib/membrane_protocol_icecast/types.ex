@@ -1,4 +1,4 @@
-defmodule Membrane.Server.Icecast.Types do
+defmodule Membrane.Protocol.Icecast.Types do
   @type remote_address_t :: {:inet.ip, :inet.port}
 
   @type format_t :: :mp3 | :ogg

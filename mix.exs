@@ -3,7 +3,7 @@ defmodule Membrane.Server.Icecast.MixProject do
 
   def project do
     [
-      app: :membrane_server_icecast,
+      app: :membrane_protocol_icecast,
       version: "0.1.0",
       elixir: "~> 1.8",
       start_permanent: Mix.env() == :prod,
@@ -15,7 +15,7 @@ defmodule Membrane.Server.Icecast.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {Membrane.Server.Icecast.Application, []}
+      mod: {Membrane.Protocol.Icecast.Application, []}
     ]
   end
 
