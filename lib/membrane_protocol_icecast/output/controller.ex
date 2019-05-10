@@ -1,4 +1,4 @@
-defmodule Membrane.Server.Icecast.Output.Controller do
+defmodule Membrane.Protocol.Icecast.Output.Controller do
   @type state_t :: any
 
   @type invalid_reason_t ::
@@ -29,7 +29,7 @@ defmodule Membrane.Server.Icecast.Output.Controller do
 
   defmacro __using__(_) do
     quote do
-      @behaviour Membrane.Server.Icecast.Output.Controller
+      @behaviour Membrane.Protocol.Icecast.Output.Controller
     end
   end
 end

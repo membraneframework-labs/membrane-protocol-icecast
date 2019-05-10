@@ -1,4 +1,4 @@
-defmodule Membrane.Server.Icecast.Output.Machine do
+defmodule Membrane.Protocol.Icecast.Output.Machine do
   @behaviour :gen_statem
 
   @http_packet_size 8192 # Maximum line length while while reading HTTP part of the protocol

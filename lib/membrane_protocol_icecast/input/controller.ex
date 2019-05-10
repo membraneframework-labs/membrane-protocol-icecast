@@ -1,5 +1,5 @@
-defmodule Membrane.Server.Icecast.Input.Controller do
-  alias Membrane.Server.Icecast.Types
+defmodule Membrane.Protocol.Icecast.Input.Controller do
+  alias Membrane.Protocol.Icecast.Types
 
   @type state_t :: any
 
@@ -39,7 +39,7 @@ defmodule Membrane.Server.Icecast.Input.Controller do
 
   defmacro __using__(_) do
     quote do
-      @behaviour Membrane.Server.Icecast.Input.Controller
+      @behaviour Membrane.Protocol.Icecast.Input.Controller
 
       # Default implementations
 

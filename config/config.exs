@@ -10,11 +10,11 @@ use Mix.Config
 
 # You can configure your application as:
 #
-#     config :membrane_server_icecast, key: :value
+#     config :membrane_protocol_icecast, key: :value
 #
 # and access this configuration in your application as:
 #
-#     Application.get_env(:membrane_server_icecast, :key)
+#     Application.get_env(:membrane_protocol_icecast, :key)
 #
 # You can also configure a third-party app:
 #

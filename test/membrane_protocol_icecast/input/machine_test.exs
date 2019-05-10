@@ -1,6 +1,6 @@
-defmodule Membrane.Server.Icecast.Input.MachineTest do
+defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   use ExUnit.Case, async: true
-  alias Membrane.Server.Icecast.Input.Machine
+  alias Membrane.Protocol.Icecast.Input.Machine
 
   defmodule Recorder do
     def start_link do
@@ -23,7 +23,7 @@ defmodule Membrane.Server.Icecast.Input.MachineTest do
 
   describe "controller's callback" do
     defmodule TestController do
-      use Membrane.Server.Icecast.Input.Controller
+      use Membrane.Protocol.Icecast.Input.Controller
 
       def handle_init(arg) do
         IO.puts "handle_init"
