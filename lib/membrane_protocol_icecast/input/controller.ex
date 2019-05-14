@@ -15,11 +15,12 @@ defmodule Membrane.Protocol.Icecast.Input.Controller do
     :unauthorized
     # FIXME method -> method_*
 
-  @type incoming_reply_t :: {:ok, {:allow, any} | {:deny, :forbidden}}
-  @type source_reply_t :: {:ok, {:allow, any} | {:deny, :unauthorized | :forbidden}}
 
-  @type payload_reply_t :: {:ok, {:continue, any} | :drop}
-  @type metadata_reply_t :: {:ok, {:continue, any} | :drop}
+  @type incoming_reply_t :: {:ok, {:allow, state_t} | {:deny, :forbidden}}
+  @type source_reply_t :: {:ok, {:allow, state_t} | {:deny, :unauthorized | :forbidden}}
+
+  @type payload_reply_t :: {:ok, {:continue, state_t} | :drop}
+  @type metadata_reply_t :: {:ok, {:continue, state_t} | :drop}
 
   # Initial actions
   @callback handle_init(any) :: {:ok, state_t}
