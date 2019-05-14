@@ -48,7 +48,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     {:ok, controller_state} = controller_module.handle_init(controller_arg)
     {:ok, remote_address} = :inet.peername(socket)
 
-    case controller_module.handle_incoming(remote_address, controller_state) do
+    case try_handle(controller_module, :handle_incoming, [remote_address, controller_state]) do
       {:ok, {:allow, new_controller_state}} ->
         timeout_ref = Process.send_after(self(), :timeout, request_timeout)
 
@@ -90,12 +90,13 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         )
 
         shutdown_deny!(code, data)
+      :error ->
+        shutdown_internal(state_data(socket: socket, transport: transport))
     end
   end
 
   @impl true
   def callback_mode, do: :handle_event_function
-
 
   ## REQUEST LINE HANDLING
 
@@ -297,6 +298,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     send_response_and_close!("401 Unauthorized", data)
   end
 
+  defp shutdown_internal(data) do
+    send_response_and_close!("500 Internal Server Error", data)
+  end
+
   defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
     :ok = transport.close(socket)
     :stop
@@ -320,4 +325,14 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     :ok = transport.close(socket)
     :stop
   end
+
+  defp try_handle(m, f, a) do
+    try do
+      :erlang.apply(m, f, a)
+    rescue
+        _ -> :error
+    end
+  end
+
+
 end
