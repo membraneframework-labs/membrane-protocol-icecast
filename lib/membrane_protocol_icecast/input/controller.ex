@@ -49,6 +49,7 @@ defmodule Membrane.Protocol.Icecast.Input.Controller do
         {:ok, {:allow, state}}
       end
 
+      defoverridable handle_incoming: 2
 
     end
   end
