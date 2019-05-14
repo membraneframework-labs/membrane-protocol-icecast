@@ -79,8 +79,6 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
         )
 
       assert Recorder.get() == {:handle_init, {"test controler arg", me}}
-      
-      :erlang.exit(machine, :normal)
     end
   end
 end
