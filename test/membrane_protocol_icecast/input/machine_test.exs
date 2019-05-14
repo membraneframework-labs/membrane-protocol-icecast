@@ -2,51 +2,85 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   use ExUnit.Case, async: true
   alias Membrane.Protocol.Icecast.Input.Machine
 
+  @test_port 1237
+
   defmodule Recorder do
-    def start_link do
-      Agent.start_link(fn -> [] end, name: __MODULE__)
+    def start_link(pid) do
+      Agent.start_link(fn -> pid end, name: __MODULE__)
     end
 
     def push(info) do
-      Agent.update(__MODULE__, fn(log) -> [info|log] end)
+      pid = Agent.get(__MODULE__, fn(p) -> p end)
+      send pid, info
     end
 
     def get do
-      Agent.get(__MODULE__, fn(log) -> Enum.reverse(log) end)
+      receive do
+        e -> e
+      end
     end
   end
 
-  setup do
-    {:ok, recorder} = Recorder.start_link()
-    []
+
+  setup_all do
+    {:ok, listen_socket} = :gen_tcp.listen(@test_port, [:binary])
+
+    on_exit fn ->
+      :gen_tcp.close(listen_socket)
+    end
+
+    %{listen_socket: listen_socket}
   end
 
-  describe "controller's callback" do
+
+  describe "Controller's callbacks" do
+
     defmodule TestController do
       use Membrane.Protocol.Icecast.Input.Controller
 
-      def handle_init(arg) do
-        IO.puts "handle_init"
+      def handle_init({_, pid} = arg) do
         Recorder.push({:handle_init, arg})
         {:ok, :somestate}
       end
     end
 
-    test "handle_init/1 is being called with argument that was passed to the Machine.init/1" do
-      {:ok, listen_socket} = :gen_tcp.listen(1236, [:binary])
-      {:ok, _conn} = :gen_tcp.connect({127, 0, 0, 1}, 1236, [active: false])
-      {:ok, socket} = :gen_tcp.accept(listen_socket)
+    setup %{listen_socket: ls} do
+      {:ok, _recorder} = Recorder.start_link(self())
+      {:ok, conn} = :gen_tcp.connect({127, 0, 0, 1}, @test_port, [active: false])
+      {:ok, socket} = :gen_tcp.accept(ls)
 
-      {:ok, machine} = :gen_statem.start_link(Machine, {socket, :gen_tcp, TestController, "test controler arg", [:put, :source], [:mp3], "Some Server", 10000, 10000}, [])
+      on_exit fn ->
+        :gen_tcp.close(conn)
+        :gen_tcp.close(socket)
+      end
 
-      IO.puts "2"
-      assert Recorder.get() == [
-        {:handle_info, "test controler arg"}
-      ]
-      IO.puts "3"
+      %{socket: socket}
+    end
 
-      :gen_statem.stop(machine)
-      IO.puts "4"
+    test "handle_init/1 is being called with argument that was passed to the Machine.init/1", %{socket: socket} do
+      me = self()
+      argument = {"test controler arg", me}
+      machine =
+        :proc_lib.spawn_link(:gen_statem, :start_link,
+          [
+            Machine,
+            {socket,
+              :gen_tcp,
+              TestController,
+              argument,
+              [:put, :source],
+              [:mp3],
+              "Some Server",
+              10000,
+              10000
+            },
+            []
+          ]
+        )
+
+      assert Recorder.get() == {:handle_init, {"test controler arg", me}}
+      
+      :erlang.exit(machine, :normal)
     end
   end
 end
