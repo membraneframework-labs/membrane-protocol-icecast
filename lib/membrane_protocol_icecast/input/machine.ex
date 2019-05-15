@@ -21,6 +21,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   @http_packet_size 8192 # Maximum line length while while reading HTTP part of the protocol
   @http_max_headers 64 # Maximum amount of headers while reading HTTP part of the protocol
 
+  @http_and_version "HTTP/1.0"
+
   require Record
   Record.defrecord(
     :state_data,
@@ -208,7 +210,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     if Enum.member?(allowed_formats, format) do
       case controller_module.handle_source(remote_address, method, format, mount, username, password, headers, controller_state) do
         {:ok, {:allow, new_controller_state}} ->
-          :ok = transport.send(socket, "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\n") # TODO use 100-Continue?
+          :ok = transport.send(socket, "#{@http_and_version} 200 OK\r\nConnection: close\r\n\r\n") # TODO use 100-Continue?
           :ok = :inet.setopts(socket, [active: true, packet: :raw, packet_size: 0, keepalive: true])
           {:next_state, :body, state_data(data, controller_state: new_controller_state, timeout_ref: new_timeout_ref)}
 
@@ -315,7 +317,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   defp send_response_and_close!(status, extra_headers, state_data(transport: transport, socket: socket, server_string: server_string)) do
-    :ok = transport.send(socket, "HTTP/1.1 #{status}\r\n")
+    :ok = transport.send(socket, "#{@http_and_version} #{status}\r\n")
     :ok = transport.send(socket, "Connection: close\r\n")
     :ok = transport.send(socket, "Server: #{server_string}\r\n")
     extra_headers

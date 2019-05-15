@@ -2,7 +2,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   use ExUnit.Case, async: true
   alias Membrane.Protocol.Icecast.Input.Machine
 
-  @test_port 1237
+  @test_port 1236
 
   defmodule Recorder do
 
@@ -253,7 +253,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       %{socket: socket, conn: conn}
     end
 
-    test "machine accepts SOURCE method", %{socket: socket, conn: conn} do
+    test "machine accepts SOURCE method and downgrades HTTP version to 1.0", %{socket: socket, conn: conn} do
       basic_auth = encode_user_pass("ala", "makota")
 
       # TODO Source requres 1.0 and PUT 1.1 ??? Was this intentional in Mechine module code?
@@ -263,11 +263,13 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
       tcp_msg = conn |> wait_for_tcp()
       {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      %HTTP1{request: %{version: http_resp_version}} = conn
 
+      assert http_resp_version == {1, 0}
       assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
     end
 
-    test "machine accepts PUT method", %{socket: socket, conn: conn} do
+    test "machine accepts PUT method and downgrades HTTP version to 1.0", %{socket: socket, conn: conn} do
       basic_auth = encode_user_pass("ala", "makota")
 
       {:ok, conn, req_ref} =
@@ -275,7 +277,9 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
       tcp_msg = conn |> wait_for_tcp()
       {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      %HTTP1{request: %{version: http_resp_version}} = conn
 
+      assert http_resp_version == {1, 0}
       assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
     end
 
@@ -288,7 +292,9 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
       tcp_msg = conn |> wait_for_tcp()
       {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      %HTTP1{request: %{version: http_resp_version}} = conn
 
+      assert http_resp_version == {1, 0}
       assert {:status, req_ref, 405} == responses |> List.keyfind(:status, 0)
     end
 
