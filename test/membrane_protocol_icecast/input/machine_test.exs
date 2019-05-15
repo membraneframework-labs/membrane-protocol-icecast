@@ -295,7 +295,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       %HTTP1{request: %{version: http_resp_version}} = conn
 
       assert http_resp_version == {1, 0}
-      assert {:status, req_ref, 405} == responses |> List.keyfind(:status, 0)
+      assert {:status, req_ref, 400} == responses |> List.keyfind(:status, 0)
     end
 
   end
