@@ -112,8 +112,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle the request line of the incoming connection if it is
-  # SOURCE /mount HTTP/1.0 (for the older icecast2 protocol).
-  def handle_event(:info, {:http, _socket, {:http_request, 'SOURCE', {:abs_path, mount}, {1, 0}}}, :request, state_data(allowed_methods: allowed_methods) = data) do
+  # SOURCE /mount HTTP/1.0 (for the older icecast2 protocol). TODO make sure it is NOT 1.0 only (also 1.1)
+  def handle_event(:info, {:http, _socket, {:http_request, "SOURCE", {:abs_path, mount}, {1, 1}}}, :request, state_data(allowed_methods: allowed_methods) = data) do
     if Enum.member?(allowed_methods, :source) do
       handle_request!(:source, mount, data)
     else
@@ -123,7 +123,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   # Handle the request line if it is not recognized.
   def handle_event(:info, {:http, _socket, {:http_request, method, {:abs_path, mount}, version}}, :request, data) do
-    shutdown_invalid!({:request, {method, mount, version}}, data) # FIXME use shutdown_method_not_allowed instead?
+    # original Icecast uses 400 in such situation but we use 405. TODO do we want to use 400 instead?
+    shutdown_method_not_allowed!({:request, {method, mount, version}}, data)
   end
 
   # Handle HTTP error while reading request line.

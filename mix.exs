@@ -23,6 +23,8 @@ defmodule Membrane.Server.Icecast.MixProject do
   defp deps do
     [
       {:ranch, "~> 1.7"},
+      {:castore, "~> 0.1.0", only: :test},
+      {:mint, "~> 0.2.0", only: :test}
     ]
   end
 end
