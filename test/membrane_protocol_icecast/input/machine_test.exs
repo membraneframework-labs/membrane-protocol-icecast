@@ -16,12 +16,12 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     def push(info) do
       pid = Agent.get(__MODULE__, fn(p) -> p end)
-      send pid, info
+      send pid, {:'$recorder', info}
     end
 
     def get do
       receive do
-        e -> e
+        {:'$recorder', e} -> e
       after
         @receive_timeout ->
           :timeout_in_recorder
@@ -204,8 +204,8 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       # This should be called: https://github.com/erlang/otp/blob/master/lib/stdlib/src/gen_statem.erl#L723
       # and end the process of gen_statem sending EXIT signal to test process with reason `{case_clause, %{}}` (?)
 
-      assert {:EXIT, ^socket, :normal} = Recorder.get() # machine will close the socket first
-      assert {:EXIT, ^machine, :normal} = Recorder.get() # and then shut down itself
+      assert {:EXIT, ^socket, :normal} = wait_for_EXIT() # machine will close the socket first
+      assert {:EXIT, ^machine, :normal} = wait_for_EXIT() # and then shut down itself
 
       # Client connection get 500 and closes
       assert {:ok, {:http_response, _, 500, 'Internal Server Error'}} = :gen_tcp.recv(conn, 0)
@@ -261,14 +261,10 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
 
-      resp =
-      receive do
-        message ->
-          {:ok, conn, responses} = HTTP1.stream(conn, message)
-          responses
-      end
+      tcp_msg = conn |> wait_for_tcp()
+      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
 
-      assert {:status, req_ref, 200} == resp |> List.keyfind(:status, 0)
+      assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
     end
 
     test "machine accepts PUT method", %{socket: socket, conn: conn} do
@@ -277,14 +273,10 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "PUT", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
 
-      resp =
-      receive do
-        message ->
-          {:ok, conn, responses} = HTTP1.stream(conn, message)
-          responses
-      end
+      tcp_msg = conn |> wait_for_tcp()
+      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
 
-      assert {:status, req_ref, 200} == resp |> List.keyfind(:status, 0)
+      assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
     end
 
 
@@ -294,14 +286,10 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "POST", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
 
-      resp =
-      receive do
-        message ->
-          {:ok, conn, responses} = HTTP1.stream(conn, message)
-          responses
-      end
+      tcp_msg = conn |> wait_for_tcp()
+      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
 
-      assert {:status, req_ref, 405} == resp |> List.keyfind(:status, 0)
+      assert {:status, req_ref, 405} == responses |> List.keyfind(:status, 0)
     end
 
   end
@@ -309,6 +297,21 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   defp encode_user_pass(user, pass) do
     plain = "#{user}:#{pass}"
     "Basic #{Base.encode64(plain)}"
+  end
+
+  defp wait_for_EXIT do
+    receive do
+      {:EXIT, _, _} = e -> e
+    end
+  end
+
+  defp wait_for_tcp(%Mint.HTTP1{socket: socket}) do
+    wait_for_tcp(socket)
+  end
+  defp wait_for_tcp(socket) do
+    receive do
+      {:tcp, ^socket, _} = e -> e
+    end
   end
 
   
