@@ -7,6 +7,8 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   defmodule Recorder do
 
     @receive_timeout 1000
+    # TODO change it so that it does not
+    # send messages to testcase process
 
     def start_link(pid) do
       Agent.start_link(fn -> pid end, name: __MODULE__)
@@ -39,11 +41,36 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     def flush() do
       receive do
-        _ -> flush(:all)
+        e ->
+          flush()
       after
         100 -> :ok
       end
     end
+  end
+
+  defmodule TestController do
+    use Membrane.Protocol.Icecast.Input.Controller
+
+    def handle_init(arg) do
+      Recorder.push({:handle_init, arg})
+      {:ok, arg}
+    end
+
+    def handle_incoming(remote_address, controller_state) do
+      Recorder.push({:handle_incoming, remote_address, controller_state})
+      case controller_state do
+        %{raise_handle_incoming: e} -> raise e
+        _ -> :ok
+      end
+      case controller_state do
+        %{let_in?: {false, code}} ->
+          {:ok, {:deny, code}}
+        %{let_in?: true} ->
+          {:ok, {:allow, controller_state}}
+      end
+    end
+
   end
 
 
@@ -60,29 +87,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
   describe "Controller's callbacks" do
 
-    defmodule TestController do
-      use Membrane.Protocol.Icecast.Input.Controller
-
-      def handle_init(arg) do
-        Recorder.push({:handle_init, arg})
-        {:ok, arg}
-      end
-
-      def handle_incoming(remote_address, controller_state) do
-        Recorder.push({:handle_incoming, remote_address, controller_state})
-        case controller_state do
-          %{raise_handle_incoming: e} -> raise e
-          _ -> :ok
-        end
-        case controller_state do
-          %{let_in?: {false, code}} ->
-            {:ok, {:deny, code}}
-          %{let_in?: true} ->
-            {:ok, {:allow, controller_state}}
-        end
-      end
-
-    end
+    
 
     setup %{listen_socket: ls} do
       {:ok, _recorder} = Recorder.start_link(self())
@@ -207,6 +212,104 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert {:ok, {:http_header, _, :Connection, _, 'close'}} = :gen_tcp.recv(conn, 0)
 
     end
+  end
+
+  describe "HTTP protocol of Icecast" do
+    alias Mint.HTTP1
+
+    setup %{listen_socket: ls} do
+      {:ok, _recorder} = Recorder.start_link(self())
+      {:ok, conn} = HTTP1.connect(:http, "localhost", @test_port)
+      {:ok, socket} = :gen_tcp.accept(ls)
+
+      #:erlang.process_flag(:trap_exit, true)
+      argument = %{let_in?: true}
+
+      machine =
+        :proc_lib.spawn_link(Machine, :init,
+          [
+            {socket,
+              :gen_tcp,
+              TestController,
+              argument,
+              [:put, :source],
+              [:mp3],
+              "Some Server",
+              10000,
+              10000
+            }
+          ]
+        )
+      # because we spawn machine in a different process (with proc_lib) than the socket is created in.
+      :ok = :gen_tcp.controlling_process(socket, machine)
+      Recorder.flush()
+
+      on_exit fn ->
+        HTTP1.close(conn)
+        :gen_tcp.close(socket)
+        Recorder.flush()
+      end
+
+      %{socket: socket, conn: conn}
+    end
+
+    test "machine accepts SOURCE method", %{socket: socket, conn: conn} do
+      basic_auth = encode_user_pass("ala", "makota")
+
+      # TODO Source requres 1.0 and PUT 1.1 ??? Was this intentional in Mechine module code?
+      # The original icecast accepts 1.1 for sure as well.
+      {:ok, conn, req_ref} =
+        HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
+
+      resp =
+      receive do
+        message ->
+          {:ok, conn, responses} = HTTP1.stream(conn, message)
+          responses
+      end
+
+      assert {:status, req_ref, 200} == resp |> List.keyfind(:status, 0)
+    end
+
+    test "machine accepts PUT method", %{socket: socket, conn: conn} do
+      basic_auth = encode_user_pass("ala", "makota")
+
+      {:ok, conn, req_ref} =
+        HTTP1.request(conn, "PUT", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
+
+      resp =
+      receive do
+        message ->
+          {:ok, conn, responses} = HTTP1.stream(conn, message)
+          responses
+      end
+
+      assert {:status, req_ref, 200} == resp |> List.keyfind(:status, 0)
+    end
+
+
+    test "machine returns 405 upon receiving unkown method request", %{socket: socket, conn: conn} do
+      basic_auth = encode_user_pass("ala", "makota")
+
+      {:ok, conn, req_ref} =
+        HTTP1.request(conn, "POST", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
+
+      resp =
+      receive do
+        message ->
+          {:ok, conn, responses} = HTTP1.stream(conn, message)
+          responses
+      end
+
+      assert {:status, req_ref, 405} == resp |> List.keyfind(:status, 0)
+    end
 
   end
+
+  defp encode_user_pass(user, pass) do
+    plain = "#{user}:#{pass}"
+    "Basic #{Base.encode64(plain)}"
+  end
+
+  
 end
