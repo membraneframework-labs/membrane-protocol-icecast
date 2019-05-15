@@ -125,8 +125,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   # Handle the request line if it is not recognized.
   def handle_event(:info, {:http, _socket, {:http_request, method, {:abs_path, mount}, version}}, :request, data) do
-    # original Icecast uses 400 in such situation but we use 405. TODO do we want to use 400 instead?
-    shutdown_method_not_allowed!({:request, {method, mount, version}}, data)
+    shutdown_bad_request!({:request, {method, mount, version}}, data)
   end
 
   # Handle HTTP error while reading request line.
