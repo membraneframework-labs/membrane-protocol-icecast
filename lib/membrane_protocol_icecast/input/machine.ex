@@ -254,13 +254,15 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   ## HELPERS
 
   defp handle_request!(method, mount, state_data(transport: transport, socket: socket) = data) do
-    if Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount)) do
+    if valid_mount?(mount) do
       :ok = :inet.setopts(socket, [active: :once, packet: :httph_bin, packet_size: @http_packet_size])
       {:next_state, :headers, state_data(data, method: method, mount: mount)}
     else
       shutdown_invalid!({:mount, mount}, data)
     end
   end
+
+  defp valid_mount?(mount), do: Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount))
 
   defp shutdown_invalid!(:unauthorized = reason, state_data(controller_module: controller_module, controller_state: controller_state, remote_address: remote_address) = data) do
     :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
