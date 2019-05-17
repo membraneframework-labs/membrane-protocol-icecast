@@ -45,7 +45,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     def flush() do
       receive do
-        e ->
+        _ ->
           flush()
       after
         100 -> :ok
@@ -118,7 +118,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     test "handle_init/1 is being called with argument that was passed to the Machine.init/1", %{socket: socket} do
       argument = %{let_in?: true}
-      machine =
+      _machine =
         :proc_lib.spawn_link(:gen_statem, :start_link,
           [
             Machine,
@@ -142,7 +142,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     test "handle_incoming/2 is called right after handle_init/1", %{socket: socket} do
       argument = %{let_in?: true}
       state = argument
-      machine =
+      _machine =
         :proc_lib.spawn_link(:gen_statem, :start_link,
           [
             Machine,
@@ -167,7 +167,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     test "handle_incoming/2 can decide not to let the connection in", %{socket: socket, conn: conn} do
       argument = %{let_in?: {false, :forbidden}}
-      machine =
+      _machine =
         :proc_lib.spawn_link(:gen_statem, :start_link,
           [
             Machine,
@@ -269,7 +269,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       %{socket: socket, conn: conn}
     end
 
-    test "machine accepts SOURCE method and downgrades HTTP version to 1.0", %{socket: socket, conn: conn} do
+    test "machine accepts SOURCE method and downgrades HTTP version to 1.0", %{conn: conn} do
       basic_auth = encode_user_pass(Users.authorized_user, "i<3Romeo")
 
       # TODO Source requres 1.0 and PUT 1.1 ??? Was this intentional in Mechine module code?
@@ -285,7 +285,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
     end
 
-    test "machine accepts PUT method and downgrades HTTP version to 1.0", %{socket: socket, conn: conn} do
+    test "machine accepts PUT method and downgrades HTTP version to 1.0", %{conn: conn} do
       basic_auth = encode_user_pass(Users.authorized_user, "i<3romeo")
 
       {:ok, conn, req_ref} =
@@ -300,50 +300,48 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
 
-    test "machine returns 405 upon receiving unkown method request", %{socket: socket, conn: conn} do
+    test "machine returns 405 upon receiving unkown method request", %{conn: conn} do
       basic_auth = encode_user_pass(Users.authorized_user, "i<3romeo")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "POST", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
 
       tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      {:ok, _conn, responses} = HTTP1.stream(conn, tcp_msg)
 
       assert {:status, req_ref, 400} == responses |> List.keyfind(:status, 0)
     end
 
-    test "Content-Type header is not mandatory", %{socket: socket, conn: conn} do
+    test "Content-Type header is not mandatory", %{conn: conn} do
       basic_auth = encode_user_pass(Users.authorized_user, "i<3romeo")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
 
       tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      {:ok, _conn, responses} = HTTP1.stream(conn, tcp_msg)
 
       assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
     end
 
-    test "Lack of Authorization header results in 401", %{socket: socket, conn: conn} do
-      basic_auth = encode_user_pass(Users.authorized_user, "i<3romeo")
-
+    test "Lack of Authorization header results in 401", %{conn: conn} do
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [], "")
 
       tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      {:ok, _conn, responses} = HTTP1.stream(conn, tcp_msg)
 
       assert {:status, req_ref, 401} == responses |> List.keyfind(:status, 0)
     end
 
-    test "Improper encoding of user and password results in 401", %{socket: socket, conn: conn} do
+    test "Improper encoding of user and password results in 401", %{conn: conn} do
       basic_auth = "wrongencoding"
 
       {:ok, conn, req_ref} =
-        HTTP1.request(conn, "SOURCE", "/my_mountpoint", [], "")
+        HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
 
       tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      {:ok, _conn, responses} = HTTP1.stream(conn, tcp_msg)
 
       assert {:status, req_ref, 401} == responses |> List.keyfind(:status, 0)
     end
@@ -354,11 +352,10 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       basic_auth = encode_user_pass(user, pass)
       content_type = "audio/ogg"
 
-      {:ok, conn, req_ref} =
+      {:ok, _conn, _req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}, {"Content-Type", content_type}], "")
 
-      tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      conn |> wait_for_tcp()
 
       {:ok, remote_addr} = :inet.peername(socket)
 
@@ -372,30 +369,27 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert content_type_header == {:"Content-Type", content_type}
     end
 
-    test "handle_source/8 will get the default format (mp3) if not specified", %{socket: socket, conn: conn} do
+    test "handle_source/8 will get the default format (mp3) if not specified", %{conn: conn} do
       basic_auth = encode_user_pass(Users.authorized_user, "i<3romeo")
       default_format = :mp3
 
-      {:ok, conn, req_ref} =
+      {:ok, conn, _req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
 
-      tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
-
-      {:ok, remote_addr} = :inet.peername(socket)
+      conn |> wait_for_tcp()
 
       assert {:handle_source, _, _, ^default_format, _, _, _, _, _} =
         Recorder.get()
     end
 
-    test "handle_source/8 can deny the connection", %{socket: socket, conn: conn} do
+    test "handle_source/8 can deny the connection", %{conn: conn} do
       basic_auth = encode_user_pass(Users.unauthorized_user, "i<3juliet")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
 
       tcp_msg = conn |> wait_for_tcp()
-      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      {:ok, _conn, responses} = HTTP1.stream(conn, tcp_msg)
 
       assert {:handle_source, _, _, _, _, _, _, _, _} = Recorder.get()
 
