@@ -1,72 +1,17 @@
 defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   use ExUnit.Case, async: true
   alias Membrane.Protocol.Icecast.Input.Machine
+  alias Membrane.Protocol.Icecast.Utils.Recorder
 
   @receive_timeout 1000
   @body_timeout 300
 
-  defmodule ControllerTestUtils do
+  defmodule TestControllerUtils do
     def authorized_user, do: "Juliet"
 
     def unauthorized_user, do: "Romeo"
 
     def end_payload, do: "For never was a story of more woe, Than this of Juliet and her Romeo."
-  end
-
-
-  defmodule Recorder do
-
-    @receive_timeout 1000
-    # TODO change it so that it does not
-    # send messages to testcase process
-
-    def start_link(pid) do
-      Agent.start_link(fn -> pid end, name: __MODULE__)
-    end
-
-    def push(info) do
-      pid = Agent.get(__MODULE__, fn(p) -> p end)
-      send pid, {:'$recorder', info}
-    end
-
-    def get do
-      receive do
-        {:'$recorder', e} -> e
-      after
-        @receive_timeout ->
-          :timeout_in_recorder
-      end
-    end
-
-    def no_messages? do
-      receive do
-        {:'$recorder', e} ->
-          flunk("There was a message in recorder: #{inspect(e)}")
-      after
-        @receive_timeout ->
-          :ok
-      end
-    end
-
-    def flush(0) do
-      :ok
-    end
-    def flush(n) do
-      receive do
-        {:'$recorder', _} -> flush(n - 1)
-      after
-        100 -> :ok
-      end
-    end
-
-    def flush() do
-      receive do
-        {:'$recorder', _} ->
-          flush()
-      after
-        100 -> :ok
-      end
-    end
   end
 
   defmodule TestController do
@@ -93,7 +38,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     def handle_source(address, method, format, mount, user, pass, headers, state) do
       Recorder.push({:handle_source, address, method, format, mount, user, pass, headers, state})
-      if user == ControllerTestUtils.authorized_user() do
+      if user == TestControllerUtils.authorized_user() do
         {:ok, {:allow, state}}
       else
         {:ok, {:deny, :unauthorized}}
@@ -102,7 +47,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     def handle_payload(address, payload, state) do
       Recorder.push({:handle_payload, address, payload, state})
-      case payload == ControllerTestUtils.end_payload() do
+      case payload == TestControllerUtils.end_payload() do
         true -> {:ok, :drop}
         false -> {:ok, {:continue, state}}
       end
@@ -125,7 +70,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
   end
 
-
+    
   setup_all do
     {:ok, listen_socket} = :gen_tcp.listen(0, [:binary])
 
@@ -310,7 +255,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
     test "machine accepts SOURCE method and downgrades HTTP version to 1.0", %{conn: conn} do
-      basic_auth = encode_user_pass(ControllerTestUtils.authorized_user, "i<3Romeo")
+      basic_auth = encode_user_pass(TestControllerUtils.authorized_user, "i<3Romeo")
 
       # TODO Source requres 1.0 and PUT 1.1 ??? Was this intentional in Mechine module code?
       # The original icecast accepts 1.1 for sure as well.
@@ -326,7 +271,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
     test "machine accepts PUT method and downgrades HTTP version to 1.0", %{conn: conn} do
-      basic_auth = encode_user_pass(ControllerTestUtils.authorized_user, "i<3romeo")
+      basic_auth = encode_user_pass(TestControllerUtils.authorized_user, "i<3romeo")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "PUT", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
@@ -341,7 +286,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
 
     test "machine returns 405 upon receiving unkown method request", %{conn: conn} do
-      basic_auth = encode_user_pass(ControllerTestUtils.authorized_user, "i<3romeo")
+      basic_auth = encode_user_pass(TestControllerUtils.authorized_user, "i<3romeo")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "POST", "/my_mountpoint", [{"Content-Type", "audio/mpeg"}, {"Authorization", basic_auth}], "")
@@ -353,7 +298,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
     test "Content-Type header is not mandatory", %{conn: conn} do
-      basic_auth = encode_user_pass(ControllerTestUtils.authorized_user, "i<3romeo")
+      basic_auth = encode_user_pass(TestControllerUtils.authorized_user, "i<3romeo")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
@@ -387,12 +332,12 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
       assert {:handle_invalid, ^remote_addr, unauthorized, _state} = Recorder.get()
       assert {:status, req_ref, 401} == responses |> List.keyfind(:status, 0)
-      :ok = Recorder.no_messages?
+      assert Recorder.no_messages?
       assert :normal == wait_for_EXIT(machine)
     end
 
     test "handle_source/8 is called with metadata about the connection", %{conn: conn} do
-      user = ControllerTestUtils.authorized_user
+      user = TestControllerUtils.authorized_user
       pass = "i<3romeo"
       basic_auth = encode_user_pass(user, pass)
       content_type = "audio/ogg"
@@ -416,7 +361,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
     test "handle_source/8 will get the default format (mp3) if not specified", %{conn: conn} do
-      basic_auth = encode_user_pass(ControllerTestUtils.authorized_user, "i<3romeo")
+      basic_auth = encode_user_pass(TestControllerUtils.authorized_user, "i<3romeo")
       default_format = :mp3
 
       {:ok, conn, _req_ref} =
@@ -429,7 +374,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
     test "handle_source/8 can deny the connection", %{conn: conn} do
-      basic_auth = encode_user_pass(ControllerTestUtils.unauthorized_user, "i<3juliet")
+      basic_auth = encode_user_pass(TestControllerUtils.unauthorized_user, "i<3juliet")
 
       {:ok, conn, req_ref} =
         HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
@@ -442,7 +387,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     end
 
     test "handle_closed/2 is called when client closes the connection", %{conn: conn} do
-      user = ControllerTestUtils.authorized_user
+      user = TestControllerUtils.authorized_user
       pass = "i<3romeo"
       basic_auth = encode_user_pass(user, pass)
       content_type = "audio/ogg"
@@ -461,7 +406,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     test "handle_payload/2 is called when client sends data", %{conn: conn, machine: machine} do
       :erlang.process_flag(:trap_exit, true)
-      user = ControllerTestUtils.authorized_user
+      user = TestControllerUtils.authorized_user
       pass = "i<3romeo"
       basic_auth = encode_user_pass(user, pass)
       content_type = "audio/mpeg"
@@ -485,7 +430,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
       assert {:handle_payload, ^remote_addr, ^payload, _state} = Recorder.get()
 
-      end_payload = ControllerTestUtils.end_payload
+      end_payload = TestControllerUtils.end_payload
       conn
       |> HTTP1.get_socket()
       |> :gen_tcp.send(end_payload)
@@ -499,7 +444,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     test "handle_timeout/2 is called client does not send any payload", %{conn: conn, machine: machine} do
       :erlang.process_flag(:trap_exit, true)
-      user = ControllerTestUtils.authorized_user
+      user = TestControllerUtils.authorized_user
       pass = "i<3romeo"
       basic_auth = encode_user_pass(user, pass)
       content_type = "audio/mpeg"
