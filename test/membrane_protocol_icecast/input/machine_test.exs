@@ -83,9 +83,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   end
 
 
-  describe "Controller's callbacks" do
-
-    
+  describe "Machine initialization" do
 
     setup %{listen_socket: ls} do
       {:ok, _recorder} = Recorder.start_link(self())
@@ -211,9 +209,11 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert {:ok, {:http_header, _, :Connection, _, 'close'}} = :gen_tcp.recv(conn, 0)
 
     end
+
+
   end
 
-  describe "HTTP protocol of Icecast" do
+  describe "Client requests" do
     alias Mint.HTTP1
 
     setup %{listen_socket: ls} do
