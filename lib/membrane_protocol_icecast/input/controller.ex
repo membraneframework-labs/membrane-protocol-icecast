@@ -31,7 +31,8 @@ defmodule Membrane.Protocol.Icecast.Input.Controller do
 
   # Ongoing actions
   @callback handle_payload(Types.remote_address_t, payload_t, state_t) :: payload_reply_t
-  @callback handle_metadata(Types.remote_address_t, Types.metadata_t, state_t) :: metadata_reply_t
+  # TODO Uncomment when we actually use it
+  #@callback handle_metadata(Types.remote_address_t, Types.metadata_t, state_t) :: metadata_reply_t
 
   # Terminal actions
   @callback handle_closed(Types.remote_address_t, state_t) :: :ok
