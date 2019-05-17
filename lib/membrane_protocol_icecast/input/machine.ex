@@ -22,6 +22,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   @http_max_headers 64 # Maximum amount of headers while reading HTTP part of the protocol
 
   @http_and_version "HTTP/1.0"
+  @default_format :mp3
 
   require Record
   Record.defrecord(
@@ -186,11 +187,6 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   ## END OF HEADERS HANDLING
 
-  # Handle end of headers if format was not recognized.
-  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(format: nil, headers: headers) = data) do
-    shutdown_invalid!({:format_unknown, headers[:"Content-Type"]}, data)
-  end
-
   # Handle end of headers if username was not given.
   def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(username: nil) = data) do
     shutdown_invalid!(:unauthorized, data)
@@ -203,6 +199,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   # Handle end of headers if format was recognized and username/password are given.
   def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(transport: transport, socket: socket, method: method, format: format, mount: mount, username: username, password: password, headers: headers, remote_address: remote_address, controller_module: controller_module, controller_state: controller_state, allowed_formats: allowed_formats, body_timeout: body_timeout, timeout_ref: timeout_ref) = data) do
+
+    # Original icecast assumes mp3 if no content-type was given
+    format = format || @default_format
+
     Process.cancel_timer(timeout_ref)
     new_timeout_ref = Process.send_after(self(), :timeout, body_timeout)
 

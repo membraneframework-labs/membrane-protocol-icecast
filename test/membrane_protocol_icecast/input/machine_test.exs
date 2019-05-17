@@ -298,6 +298,48 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert {:status, req_ref, 400} == responses |> List.keyfind(:status, 0)
     end
 
+    test "Content-Type header is not mandatory", %{socket: socket, conn: conn} do
+      basic_auth = encode_user_pass("ala", "makota")
+
+      {:ok, conn, req_ref} =
+        HTTP1.request(conn, "SOURCE", "/my_mountpoint", [{"Authorization", basic_auth}], "")
+
+      tcp_msg = conn |> wait_for_tcp()
+      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      %HTTP1{request: %{version: http_resp_version}} = conn
+
+      assert http_resp_version == {1, 0}
+      assert {:status, req_ref, 200} == responses |> List.keyfind(:status, 0)
+    end
+
+    test "Lack of Authorization header results in 401", %{socket: socket, conn: conn} do
+      basic_auth = encode_user_pass("ala", "makota")
+
+      {:ok, conn, req_ref} =
+        HTTP1.request(conn, "SOURCE", "/my_mountpoint", [], "")
+
+      tcp_msg = conn |> wait_for_tcp()
+      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      %HTTP1{request: %{version: http_resp_version}} = conn
+
+      assert http_resp_version == {1, 0}
+      assert {:status, req_ref, 401} == responses |> List.keyfind(:status, 0)
+    end
+
+    test "Improper encoding of user and password results in 401", %{socket: socket, conn: conn} do
+      basic_auth = "wrongencoding"
+
+      {:ok, conn, req_ref} =
+        HTTP1.request(conn, "SOURCE", "/my_mountpoint", [], "")
+
+      tcp_msg = conn |> wait_for_tcp()
+      {:ok, conn, responses} = HTTP1.stream(conn, tcp_msg)
+      %HTTP1{request: %{version: http_resp_version}} = conn
+
+      assert http_resp_version == {1, 0}
+      assert {:status, req_ref, 401} == responses |> List.keyfind(:status, 0)
+    end
+
   end
 
   defp encode_user_pass(user, pass) do
