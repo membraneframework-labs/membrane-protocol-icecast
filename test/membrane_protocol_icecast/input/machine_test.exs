@@ -2,8 +2,6 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
   use ExUnit.Case, async: true
   alias Membrane.Protocol.Icecast.Input.Machine
 
-  @test_port 1236
-
   defmodule Recorder do
 
     @receive_timeout 1000
@@ -75,7 +73,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
 
   setup_all do
-    {:ok, listen_socket} = :gen_tcp.listen(@test_port, [:binary])
+    {:ok, listen_socket} = :gen_tcp.listen(0, [:binary])
 
     on_exit fn ->
       :gen_tcp.close(listen_socket)
@@ -91,7 +89,8 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     setup %{listen_socket: ls} do
       {:ok, _recorder} = Recorder.start_link(self())
-      {:ok, conn} = :gen_tcp.connect({127, 0, 0, 1}, @test_port, [active: false])
+      {:ok, listen_port} = :inet.port(ls)
+      {:ok, conn} = :gen_tcp.connect({127, 0, 0, 1}, listen_port, [active: false])
       :inet.setopts(conn, [packet: :http])
       {:ok, socket} = :gen_tcp.accept(ls)
 
@@ -219,7 +218,8 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
     setup %{listen_socket: ls} do
       {:ok, _recorder} = Recorder.start_link(self())
-      {:ok, conn} = HTTP1.connect(:http, "localhost", @test_port)
+      {:ok, listen_port} = :inet.port(ls)
+      {:ok, conn} = HTTP1.connect(:http, "localhost", listen_port)
       {:ok, socket} = :gen_tcp.accept(ls)
 
       #:erlang.process_flag(:trap_exit, true)
