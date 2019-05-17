@@ -143,19 +143,19 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle Content-Type header if the format is MP3.
-  def handle_event(:info, {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/mpeg" = value}}, :headers, state_data(transport: transport, socket: socket, headers: headers) = data) do
+  def handle_event(:info, {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/mpeg" = value}}, :headers, state_data(socket: socket, headers: headers) = data) do
     :ok = :inet.setopts(socket, [active: :once, packet: :httph_bin, packet_size: @http_packet_size])
     {:next_state, :headers, state_data(data, format: :mp3, headers: [{key,value}|headers])}
   end
 
   # Handle Content-Type header if the format is Ogg audio.
-  def handle_event(:info, {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/ogg" = value}}, :headers, state_data(transport: transport, socket: socket, headers: headers) = data) do
+  def handle_event(:info, {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/ogg" = value}}, :headers, state_data(socket: socket, headers: headers) = data) do
     :ok = :inet.setopts(socket, [active: :once, packet: :httph_bin, packet_size: @http_packet_size])
     {:next_state, :headers, state_data(data, format: :ogg, headers: [{key,value}|headers])}
   end
 
   # Handle Authorization header if it is using HTTP Basic Auth.
-  def handle_event(:info, {:http, _socket, {:http_header, _, :"Authorization" = key, _, "Basic " <> credentials_encoded = value}}, :headers, state_data(transport: transport, socket: socket, headers: headers) = data) do
+  def handle_event(:info, {:http, _socket, {:http_header, _, :"Authorization" = key, _, "Basic " <> credentials_encoded = value}}, :headers, state_data(socket: socket, headers: headers) = data) do
     :ok = :inet.setopts(socket, [active: :once, packet: :httph_bin, packet_size: @http_packet_size])
 
     case Base.decode64(credentials_encoded) do
@@ -174,7 +174,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle each extra header being sent from the client that was not handled before.
-  def handle_event(:info, {:http, _socket, {:http_header, _, key, _, value}}, :headers, state_data(transport: transport, socket: socket, headers: headers) = data) do
+  def handle_event(:info, {:http, _socket, {:http_header, _, key, _, value}}, :headers, state_data(socket: socket, headers: headers) = data) do
     :ok = :inet.setopts(socket, [active: :once, packet: :httph_bin, packet_size: @http_packet_size])
     {:next_state, :headers, state_data(data, headers: [{key,value}|headers])}
   end
@@ -255,7 +255,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   ## HELPERS
 
-  defp handle_request!(method, mount, state_data(transport: transport, socket: socket) = data) do
+  defp handle_request!(method, mount, state_data(socket: socket) = data) do
     if valid_mount?(mount) do
       :ok = :inet.setopts(socket, [active: :once, packet: :httph_bin, packet_size: @http_packet_size])
       {:next_state, :headers, state_data(data, method: method, mount: mount)}
@@ -307,6 +307,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
+    transport.send(socket, "ala ma kota")
     :ok = transport.close(socket)
     :stop
   end
