@@ -74,12 +74,12 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   @impl true
   # Handle the request line of the incoming connection. Support only GET via HTTP/1.1.
-  def handle_event(:info, {:http, _socket, {:http_request, :GET, {:abs_path, mount}, {1, 1}}}, :request, data) do
+  def handle_event(:info, {:http, _socket, {:http_request, :GET, {:abs_path, mount}, {1, _}}}, :request, data) do
     handle_request!(mount, data)
   end
 
   # Handle the request line if method was not GET
-  def handle_event(:info, {:http, _socket, {:http_request, method, _path, {1, 1}}}, :request, data) do
+  def handle_event(:info, {:http, _socket, {:http_request, method, _path, {1, _}}}, :request, data) do
     shutdown_method_not_allowed!(method, data)
   end
 
