@@ -199,7 +199,19 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   end
 
   defp shutdown_deny!(:not_found, data) do
-    send_response_and_close!("404 Not Found", data)
+    body = """
+    <html>
+      <head>
+        <title>
+          Error 404
+        </title>
+      </head>
+      <body>
+        <b>404 - The file you requested could not be found</b>
+      </body>
+    </html>
+    """
+    send_response_and_close!("404 Not Found", [{"content-type", "text/html"}], body, data)
   end
 
   defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
@@ -208,10 +220,14 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   end
 
   defp send_response_and_close!(status, data) do
-    send_response_and_close!(status, [], data)
+    send_response_and_close!(status, [], "", data)
   end
 
-  defp send_response_and_close!(status, extra_headers, state_data(transport: transport, socket: socket, server_string: server_string)) do
+  defp send_response_and_close!(status, extra_headers, data) do
+    send_response_and_close!(status, extra_headers, "", data)
+  end
+
+  defp send_response_and_close!(status, extra_headers, body, state_data(transport: transport, socket: socket, server_string: server_string)) do
     :ok = transport.send(socket, "HTTP/1.1 #{status}\r\n")
     :ok = transport.send(socket, "Connection: close\r\n")
     :ok = transport.send(socket, "Server: #{server_string}\r\n")
@@ -220,9 +236,19 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
       :ok = transport.send(socket, "#{key}: #{value}\r\n")
     end)
     # TODO add date header
-
+    case body do
+      "" ->
+        :ok
+      _ ->
+        :ok = transport.send(socket, "\r\n")
+        transport.send(socket, body)
+    end
     :ok = transport.send(socket, "\r\n")
     :ok = transport.close(socket)
     :stop
   end
+
+  defp format_to_content_type(:mp3), do: "Content-Type: audio/mpeg\r\n"
+  defp format_to_content_type(:ogg), do: "Content-Type: audio/ogg\r\n"
+
 end
