@@ -120,10 +120,11 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
     Process.cancel_timer(timeout_ref)
 
     case controller_module.handle_listener(remote_address, mount, headers, controller_state) do
-      {:ok, {:allow, new_controller_state}} ->
+      {:ok, {:allow, new_controller_state}, format} ->
         tref = Process.send_after(self(), :timeout, body_timeout)
-        :ok = transport.send(socket, "HTTP/1.1 200 OK\r\nConnection: close\r\n")
-        :ok = transport.send(socket, "Content-Type: audio/mpeg\r\n\r\n") # FIXME
+        content_type = format_to_content_type(format)
+        :ok = transport.send(socket, "HTTP/1.0 200 OK\r\n")#Connection: close\r\n") # TODO make sure this connection close is not intended here.
+        :ok = transport.send(socket, "#{content_type}\r\n")
         :ok = transport.setopts(socket, [active: true, packet: :raw, packet_size: 0])
         {:next_state, :body, state_data(data, controller_state: new_controller_state, timeout_ref: tref)}
 

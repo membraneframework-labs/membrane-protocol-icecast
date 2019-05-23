@@ -13,7 +13,7 @@ defmodule Membrane.Protocol.Icecast.Output.Controller do
     # FIXME method -> method_*
 
   @type incoming_reply_t :: {:ok, {:allow, any} | {:deny, :forbidden}}
-  @type listener_reply_t :: {:ok, {:allow, any} | {:deny, :forbidden, :not_found}}
+  @type listener_reply_t :: {:ok, {:allow, any}, Types.format_t} | {:ok, {:deny, :forbidden, :not_found}}
 
   # Initial actions
   @callback handle_init(any) :: {:ok, state_t}
