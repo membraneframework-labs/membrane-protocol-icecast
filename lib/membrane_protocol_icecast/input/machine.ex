@@ -116,7 +116,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   # Handle the request line of the incoming connection if it is
   # SOURCE /mount HTTP/1.0 (for the older icecast2 protocol). TODO make sure it is NOT 1.0 only (also 1.1)
-  def handle_event(:info, {:http, _socket, {:http_request, "SOURCE", {:abs_path, mount}, {1, 1}}}, :request, state_data(allowed_methods: allowed_methods) = data) do
+  def handle_event(:info, {:http, _socket, {:http_request, "SOURCE", {:abs_path, mount}, {1, _}}}, :request, state_data(allowed_methods: allowed_methods) = data) do
     if Enum.member?(allowed_methods, :source) do
       handle_request!(:source, mount, data)
     else
