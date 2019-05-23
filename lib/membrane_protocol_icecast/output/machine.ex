@@ -116,15 +116,16 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   ## END OF HEADERS HANDLING
 
   # Handle end of headers if format was recognized and username/password are given.
-  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(transport: transport, socket: socket, mount: mount, headers: headers, remote_address: remote_address, controller_module: controller_module, controller_state: controller_state, timeout_ref: timeout_ref) = data) do
+  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(transport: transport, socket: socket, mount: mount, headers: headers, remote_address: remote_address, controller_module: controller_module, controller_state: controller_state, timeout_ref: timeout_ref, body_timeout: body_timeout) = data) do
     Process.cancel_timer(timeout_ref)
 
     case controller_module.handle_listener(remote_address, mount, headers, controller_state) do
       {:ok, {:allow, new_controller_state}} ->
+        tref = Process.send_after(self(), :timeout, body_timeout)
         :ok = transport.send(socket, "HTTP/1.1 200 OK\r\nConnection: close\r\n")
         :ok = transport.send(socket, "Content-Type: audio/mpeg\r\n\r\n") # FIXME
         :ok = transport.setopts(socket, [active: true, packet: :raw, packet_size: 0])
-        {:next_state, :body, state_data(data, controller_state: new_controller_state, timeout_ref: nil)}
+        {:next_state, :body, state_data(data, controller_state: new_controller_state, timeout_ref: tref)}
 
       {:ok, {:deny, code}} ->
         shutdown_deny!(code, data)
@@ -141,7 +142,9 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   end
 
   # Handle payload being sent
-  def handle_event(:info, {:payload, payload}, :body, state_data(transport: transport, socket: socket) = data) do
+  def handle_event(:info, {:payload, payload}, :body, state_data(transport: transport, body_timeout: body_timeout, socket: socket, timeout_ref: tref) = data) do
+    Process.cancel_timer(tref)
+    Process.send_after(self(), :timeout, body_timeout)
     :ok = transport.send(socket, payload)
     {:next_state, :body, data}
   end
