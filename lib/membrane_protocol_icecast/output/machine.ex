@@ -145,9 +145,9 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   # Handle payload being sent
   def handle_event(:info, {:payload, payload}, :body, state_data(transport: transport, body_timeout: body_timeout, socket: socket, timeout_ref: tref) = data) do
     Process.cancel_timer(tref)
-    Process.send_after(self(), :timeout, body_timeout)
+    tref = Process.send_after(self(), :timeout, body_timeout)
     :ok = transport.send(socket, payload)
-    {:next_state, :body, data}
+    {:next_state, :body, state_data(data, timeout_ref: tref)}
   end
 
 
