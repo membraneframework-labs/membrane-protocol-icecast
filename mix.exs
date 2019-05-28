@@ -1,4 +1,4 @@
-defmodule Membrane.Server.Icecast.MixProject do
+defmodule Membrane.Protocol.Icecast.MixProject do
   use Mix.Project
 
   def project do
