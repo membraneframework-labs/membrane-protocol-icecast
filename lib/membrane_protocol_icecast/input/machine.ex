@@ -26,28 +26,25 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   @http_and_version "HTTP/1.0"
   @default_format :mp3
 
-  require Record
-
-  Record.defrecord(
-    :state_data,
-    allowed_methods: nil,
-    allowed_formats: nil,
-    controller_module: nil,
-    controller_state: nil,
-    remote_address: nil,
-    socket: nil,
-    transport: nil,
-    method: nil,
-    format: nil,
-    username: nil,
-    password: nil,
-    mount: nil,
-    headers: [],
-    server_string: nil,
-    request_timeout: nil,
-    body_timeout: nil,
-    timeout_ref: nil
-  )
+  defmodule StateData do
+    defstruct allowed_methods: nil,
+      allowed_formats: nil,
+      controller_module: nil,
+      controller_state: nil,
+      remote_address: nil,
+      socket: nil,
+      transport: nil,
+      method: nil,
+      format: nil,
+      username: nil,
+      password: nil,
+      mount: nil,
+      headers: [],
+      server_string: nil,
+      request_timeout: nil,
+      body_timeout: nil,
+      timeout_ref: nil
+  end
 
   @impl true
   def init(
@@ -62,7 +59,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         timeout_ref = Process.send_after(self(), :timeout, request_timeout)
 
         data =
-          state_data(
+          %StateData{
             controller_module: controller_module,
             controller_state: new_controller_state,
             remote_address: remote_address,
@@ -74,7 +71,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
             request_timeout: request_timeout,
             body_timeout: body_timeout,
             timeout_ref: timeout_ref
-          )
+          }
 
         :ok =
           :inet.setopts(socket,
@@ -90,7 +87,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
       {:ok, {:deny, code}} ->
         data =
-          state_data(
+          %StateData{
             controller_module: controller_module,
             remote_address: remote_address,
             socket: socket,
@@ -100,12 +97,12 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
             server_string: server_string,
             request_timeout: request_timeout,
             body_timeout: body_timeout
-          )
+          }
 
         shutdown_deny!(code, data)
 
       :error ->
-        shutdown_internal(state_data(socket: socket, transport: transport))
+        shutdown_internal(%StateData{socket: socket, transport: transport})
     end
   end
 
@@ -121,7 +118,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_request, :PUT, {:abs_path, mount}, {1, 1}}},
         :request,
-        state_data(allowed_methods: allowed_methods) = data
+        %StateData{allowed_methods: allowed_methods} = data
       ) do
     if Enum.member?(allowed_methods, :put) do
       handle_request!(:put, mount, data)
@@ -136,7 +133,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_request, "SOURCE", {:abs_path, mount}, {1, _}}},
         :request,
-        state_data(allowed_methods: allowed_methods) = data
+        %StateData{allowed_methods: allowed_methods} = data
       ) do
     if Enum.member?(allowed_methods, :source) do
       handle_request!(:source, mount, data)
@@ -167,7 +164,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_header, _, _key, _, _value}},
         :headers,
-        state_data(headers: headers) = data
+        %StateData{headers: headers} = data
       )
       when length(headers) > @http_max_headers do
     shutdown_invalid!(:too_many_headers, data)
@@ -178,10 +175,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/mpeg" = value}},
         :headers,
-        state_data(socket: socket, headers: headers) = data
+        %StateData{socket: socket, headers: headers} = data
       ) do
     :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-    {:next_state, :headers, state_data(data, format: :mp3, headers: [{key, value} | headers])}
+    {:next_state, :headers, %StateData{data | format: :mp3, headers: [{key, value} | headers]}}
   end
 
   # Handle Content-Type header if the format is Ogg audio.
@@ -189,10 +186,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/ogg" = value}},
         :headers,
-        state_data(socket: socket, headers: headers) = data
+        %StateData{socket: socket, headers: headers} = data
       ) do
     :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-    {:next_state, :headers, state_data(data, format: :ogg, headers: [{key, value} | headers])}
+    {:next_state, :headers, %StateData{data | format: :ogg, headers: [{key, value} | headers]}}
   end
 
   # Handle Authorization header if it is using HTTP Basic Auth.
@@ -201,7 +198,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         {:http, _socket,
          {:http_header, _, :Authorization = key, _, "Basic " <> credentials_encoded = value}},
         :headers,
-        state_data(socket: socket, headers: headers) = data
+        %StateData{socket: socket, headers: headers} = data
       ) do
     :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
 
@@ -210,20 +207,20 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         case String.split(credentials, ":", parts: 2) do
           [username, password] ->
             {:next_state, :headers,
-             state_data(data,
+             %StateData{data |
                username: username,
                password: password,
                headers: [{key, value} | headers]
-             )}
+             }}
 
           _ ->
             {:next_state, :headers,
-             state_data(data, username: nil, password: nil, headers: [{key, value} | headers])}
+             %StateData{data | username: nil, password: nil, headers: [{key, value} | headers]}}
         end
 
       :error ->
         {:next_state, :headers,
-         state_data(data, username: nil, password: nil, headers: [{key, value} | headers])}
+         %StateData{data | username: nil, password: nil, headers: [{key, value} | headers]}}
     end
   end
 
@@ -232,10 +229,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_header, _, key, _, value}},
         :headers,
-        state_data(socket: socket, headers: headers) = data
+        %StateData{socket: socket, headers: headers} = data
       ) do
     :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-    {:next_state, :headers, state_data(data, headers: [{key, value} | headers])}
+    {:next_state, :headers, %StateData{data | headers: [{key, value} | headers]}}
   end
 
   # Handle HTTP error while reading headers.
@@ -246,12 +243,12 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   ## END OF HEADERS HANDLING
 
   # Handle end of headers if username was not given.
-  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(username: nil) = data) do
+  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, %StateData{username: nil} = data) do
     shutdown_invalid!(:unauthorized, data)
   end
 
   # Handle end of headers if password was not given.
-  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, state_data(password: nil) = data) do
+  def handle_event(:info, {:http, _socket, :http_eoh}, :headers, %StateData{password: nil} = data) do
     shutdown_invalid!(:unauthorized, data)
   end
 
@@ -260,7 +257,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, :http_eoh},
         :headers,
-        state_data(
+        %StateData{
           transport: transport,
           socket: socket,
           method: method,
@@ -275,7 +272,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
           allowed_formats: allowed_formats,
           body_timeout: body_timeout,
           timeout_ref: timeout_ref
-        ) = data
+        } = data
       ) do
     # Original icecast assumes mp3 if no content-type was given
     format = format || @default_format
@@ -300,7 +297,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
           :ok = :inet.setopts(socket, active: true, packet: :raw, packet_size: 0, keepalive: true)
 
           {:next_state, :body,
-           state_data(data, controller_state: new_controller_state, timeout_ref: new_timeout_ref)}
+           %StateData{data | controller_state: new_controller_state, timeout_ref: new_timeout_ref}}
 
         {:ok, {:deny, code}} ->
           shutdown_deny!(code, data)
@@ -317,13 +314,13 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:tcp, _, payload},
         :body,
-        state_data(
+        %StateData{
           controller_module: controller_module,
           controller_state: controller_state,
           remote_address: remote_address,
           body_timeout: body_timeout,
           timeout_ref: timeout_ref
-        ) = data
+        } = data
       ) do
     Process.cancel_timer(timeout_ref)
     new_timeout_ref = Process.send_after(self(), :timeout, body_timeout)
@@ -331,7 +328,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     case controller_module.handle_payload(remote_address, payload, controller_state) do
       {:ok, {:continue, new_controller_state}} ->
         {:next_state, :body,
-         state_data(data, controller_state: new_controller_state, timeout_ref: new_timeout_ref)}
+         %StateData{data | controller_state: new_controller_state, timeout_ref: new_timeout_ref}}
 
       {:ok, :drop} ->
         shutdown_drop!(data)
@@ -343,11 +340,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:tcp_closed, _},
         _state,
-        state_data(
+        %StateData{
           controller_module: controller_module,
           controller_state: controller_state,
           remote_address: remote_address
-        )
+        }
       ) do
     :ok = controller_module.handle_closed(remote_address, controller_state)
     {:stop, :normal}
@@ -359,11 +356,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         :timeout,
         _state,
-        state_data(
+        %StateData{
           controller_module: controller_module,
           controller_state: controller_state,
           remote_address: remote_address
-        ) = data
+        } = data
       ) do
     :ok = controller_module.handle_timeout(remote_address, controller_state)
     send_response_and_close!("502 Gateway Timeout", data)
@@ -371,12 +368,12 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   ## HELPERS
 
-  defp handle_request!(method, mount, state_data(socket: socket) = data) do
+  defp handle_request!(method, mount, %StateData{socket: socket} = data) do
     if valid_mount?(mount) do
       :ok =
         :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
 
-      {:next_state, :headers, state_data(data, method: method, mount: mount)}
+      {:next_state, :headers, %StateData{data | method: method, mount: mount}}
     else
       shutdown_invalid!({:mount, mount}, data)
     end
@@ -386,11 +383,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   defp shutdown_invalid!(
          :unauthorized = reason,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
     send_response_and_close!("401 Unauthorized", data)
@@ -398,11 +395,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   defp shutdown_invalid!(
          reason,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
     send_response_and_close!("422 Unprocessable Entity", data)
@@ -410,11 +407,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   defp shutdown_bad_request!(
          reason,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, {:request, reason}, controller_state)
     send_response_and_close!("400 Bad Request", data)
@@ -422,12 +419,12 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   defp shutdown_method_not_allowed!(
          method,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address,
            allowed_methods: allowed_methods
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, {:method, method}, controller_state)
 
@@ -454,7 +451,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     send_response_and_close!("500 Internal Server Error", data)
   end
 
-  defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
+  defp shutdown_drop!(%StateData{transport: transport, socket: socket}) do
     transport.send(socket, "ala ma kota")
     :ok = transport.close(socket)
     {:stop, :normal}
@@ -467,7 +464,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   defp send_response_and_close!(
          status,
          extra_headers,
-         state_data(transport: transport, socket: socket, server_string: server_string)
+         %StateData{transport: transport, socket: socket, server_string: server_string}
        ) do
     :ok = transport.send(socket, "#{@http_and_version} #{status}\r\n")
     :ok = transport.send(socket, "Connection: close\r\n")
