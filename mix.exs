@@ -24,7 +24,8 @@ defmodule Membrane.Protocol.Icecast.MixProject do
     [
       {:ranch, "~> 1.7"},
       {:castore, "~> 0.1.0", only: :test},
-      {:mint, "~> 0.2.0", only: :test}
+      {:mint, "~> 0.2.0", only: :test},
+      {:dialyxir, "~> 0.4", only: [:dev]}
     ]
   end
 end

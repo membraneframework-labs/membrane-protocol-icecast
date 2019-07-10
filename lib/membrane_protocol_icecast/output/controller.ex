@@ -1,8 +1,9 @@
 defmodule Membrane.Protocol.Icecast.Output.Controller do
+  alias Membrane.Protocol.Icecast.Types
   @type state_t :: any
 
   @type invalid_reason_t ::
-          {:request, {:request, any} | {:header, binary}}
+          {:request, {:request, any} | {:header, binary} | {any, any, any}}
           | {:method, atom | charlist}
           | {:mount, binary}
           | :format_unknown

@@ -201,7 +201,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         )
       ) do
     :ok = controller_module.handle_closed(remote_address, controller_state)
-    :stop
+    {:stop, :normal}
   end
 
   # Handle payload being sent
@@ -253,18 +253,6 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
     else
       shutdown_invalid!({:mount, mount}, data)
     end
-  end
-
-  defp shutdown_invalid!(
-         :unauthorized = reason,
-         state_data(
-           controller_module: controller_module,
-           controller_state: controller_state,
-           remote_address: remote_address
-         ) = data
-       ) do
-    :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
-    send_response_and_close!("401 Unauthorized", data)
   end
 
   defp shutdown_invalid!(
@@ -330,7 +318,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
     :ok = transport.close(socket)
-    :stop
+    {:stop, :normal}
   end
 
   defp send_response_and_close!(status, data) do
@@ -368,7 +356,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
     :ok = transport.send(socket, "\r\n")
     :ok = transport.close(socket)
-    :stop
+    {:stop, :normal}
   end
 
   defp format_to_content_type(:mp3), do: "Content-Type: audio/mpeg\r\n"

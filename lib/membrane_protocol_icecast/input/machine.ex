@@ -287,12 +287,12 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
       case controller_module.handle_source(
              remote_address,
              method,
-             format,
-             mount,
-             username,
-             password,
-             headers,
-             controller_state
+             controller_state,
+             format: format,
+             mount: mount,
+             username: username,
+             password: password,
+             headers: headers
            ) do
         {:ok, {:allow, new_controller_state}} ->
           # TODO use 100-Continue?
@@ -350,7 +350,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         )
       ) do
     :ok = controller_module.handle_closed(remote_address, controller_state)
-    :stop
+    {:stop, :normal}
   end
 
   ## TIMEOUTS HANDLING
@@ -457,7 +457,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
     transport.send(socket, "ala ma kota")
     :ok = transport.close(socket)
-    :stop
+    {:stop, :normal}
   end
 
   defp send_response_and_close!(status, data) do
@@ -482,7 +482,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
     :ok = transport.send(socket, "\r\n")
     :ok = transport.close(socket)
-    :stop
+    {:stop, :normal}
   end
 
   defp try_handle(m, f, a) do

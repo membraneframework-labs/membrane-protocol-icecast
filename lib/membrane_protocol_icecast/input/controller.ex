@@ -30,12 +30,12 @@ defmodule Membrane.Protocol.Icecast.Input.Controller do
   @callback handle_source(
               Types.remote_address_t(),
               Types.method_t(),
-              Types.format_t(),
-              Types.mount_t(),
-              String.t(),
-              String.t(),
-              Types.headers_t(),
-              state_t
+              state_t,
+              format: Types.format_t(),
+              mount: Types.mount_t(),
+              username: Types.username(),
+              password: Types.password(),
+              headers: Types.headers_t()
             ) :: source_reply_t
 
   # Ongoing actions
