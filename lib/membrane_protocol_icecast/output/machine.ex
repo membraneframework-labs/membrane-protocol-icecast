@@ -21,10 +21,15 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   end
 
   @impl true
-  def init(
-        {socket, transport, controller_module, controller_arg, server_string, request_timeout,
-         body_timeout}
-      ) do
+  def init(%{
+        socket: socket,
+        transport: transport,
+        controller_module: controller_module,
+        controller_arg: controller_arg,
+        server_string: server_string,
+        request_timeout: request_timeout,
+        body_timeout: body_timeout
+      }) do
     {:ok, controller_state} = controller_module.handle_init(controller_arg)
     {:ok, remote_address} = :inet.peername(socket)
 

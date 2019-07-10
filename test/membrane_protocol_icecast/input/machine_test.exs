@@ -115,8 +115,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       _machine =
         :proc_lib.spawn_link(:gen_statem, :start_link, [
           Machine,
-          {socket, :gen_tcp, TestController, argument, [:put, :source], [:mp3], "Some Server",
-           10000, @body_timeout},
+          init_parameter(socket, argument),
           []
         ])
 
@@ -130,8 +129,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       _machine =
         :proc_lib.spawn_link(:gen_statem, :start_link, [
           Machine,
-          {socket, :gen_tcp, TestController, argument, [:put, :source], [:mp3], "Some Server",
-           10000, @body_timeout},
+          init_parameter(socket, argument),
           []
         ])
 
@@ -149,8 +147,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       _machine =
         :proc_lib.spawn_link(:gen_statem, :start_link, [
           Machine,
-          {socket, :gen_tcp, TestController, argument, [:put, :source], [:mp3], "Some Server",
-           10000, @body_timeout},
+          init_parameter(socket, argument),
           []
         ])
 
@@ -168,8 +165,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       machine =
         :proc_lib.spawn_link(:gen_statem, :start_link, [
           Machine,
-          {socket, :gen_tcp, TestController, argument, [:put, :source], [:mp3], "Some Server",
-           10000, @body_timeout},
+          init_parameter(socket, argument),
           []
         ])
 
@@ -205,8 +201,7 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
 
       machine =
         :proc_lib.spawn_link(Machine, :init, [
-          {socket, :gen_tcp, TestController, argument, [:put, :source], [:mp3, :ogg],
-           "Some Server", 300, @body_timeout}
+          init_parameter(socket, argument, 300, [:mp3, :ogg])
         ])
 
       # because we spawn machine in a different process (with proc_lib) than the socket is created in.
@@ -526,5 +521,24 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
     after
       @receive_timeout -> {:error, :timeout_when_waiting_for_tcp_close}
     end
+  end
+
+  defp init_parameter(
+         socket,
+         controller_argument,
+         request_timeout \\ 1000,
+         allowed_foramts \\ [:mp3]
+       ) do
+    %{
+      socket: socket,
+      transport: :gen_tcp,
+      controller_module: TestController,
+      controller_arg: controller_argument,
+      allowed_methods: [:put, :source],
+      allowed_formats: allowed_foramts,
+      server_string: "Some Server",
+      request_timeout: request_timeout,
+      body_timeout: @body_timeout
+    }
   end
 end
