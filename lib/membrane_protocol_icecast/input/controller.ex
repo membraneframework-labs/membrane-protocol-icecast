@@ -54,17 +54,17 @@ defmodule Membrane.Protocol.Icecast.Input.Controller do
 
       # Default implementations
 
-      @doc false
+      @impl true
       def handle_incoming(_remote_address, state) do
         {:ok, {:allow, state}}
       end
 
-      @doc false
+      @impl true
       def handle_source(_addr, _method, state, _opts) do
         {:ok, {:allow, state}}
       end
 
-      @doc false
+      @impl true
       def handle_invalid(_address, _reason, state), do: :ok
 
       defoverridable handle_incoming: 2, handle_source: 4, handle_invalid: 3
