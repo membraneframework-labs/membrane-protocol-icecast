@@ -6,22 +6,19 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   # Maximum amount of headers while reading HTTP part of the protocol
   @http_max_headers 64
 
-  require Record
-
-  Record.defrecord(
-    :state_data,
-    controller_module: nil,
-    controller_state: nil,
-    remote_address: nil,
-    socket: nil,
-    transport: nil,
-    mount: nil,
-    headers: [],
-    server_string: nil,
-    request_timeout: nil,
-    body_timeout: nil,
-    timeout_ref: nil
-  )
+  defmodule StateData do
+    defstruct controller_module: nil,
+      controller_state: nil,
+      remote_address: nil,
+      socket: nil,
+      transport: nil,
+      mount: nil,
+      headers: [],
+      server_string: nil,
+      request_timeout: nil,
+      body_timeout: nil,
+      timeout_ref: nil
+  end
 
   @impl true
   def init(
@@ -36,7 +33,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         timeout_ref = Process.send_after(self(), :timeout, request_timeout)
 
         data =
-          state_data(
+          %StateData{
             controller_module: controller_module,
             controller_state: new_controller_state,
             remote_address: remote_address,
@@ -46,7 +43,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
             request_timeout: request_timeout,
             body_timeout: body_timeout,
             timeout_ref: timeout_ref
-          )
+          }
 
         :ok =
           transport.setopts(socket,
@@ -62,7 +59,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
       {:ok, {:deny, code}} ->
         data =
-          state_data(
+          %StateData{
             controller_module: controller_module,
             remote_address: remote_address,
             socket: socket,
@@ -70,7 +67,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
             server_string: server_string,
             request_timeout: request_timeout,
             body_timeout: body_timeout
-          )
+          }
 
         shutdown_deny!(code, data)
     end
@@ -125,7 +122,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:http, _socket, {:http_header, _, _key, _, _value}},
         :headers,
-        state_data(headers: headers) = data
+        %StateData{headers: headers} = data
       )
       when length(headers) > @http_max_headers do
     shutdown_invalid!(:too_many_headers, data)
@@ -136,12 +133,12 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:http, _socket, {:http_header, _, key, _, value}},
         :headers,
-        state_data(transport: transport, socket: socket, headers: headers) = data
+        %StateData{transport: transport, socket: socket, headers: headers} = data
       ) do
     :ok =
       transport.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
 
-    {:next_state, :headers, state_data(data, headers: [{key, value} | headers])}
+    {:next_state, :headers, %StateData{data | headers: [{key, value} | headers]}}
   end
 
   # Handle HTTP error while reading headers.
@@ -156,7 +153,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:http, _socket, :http_eoh},
         :headers,
-        state_data(
+        %StateData{
           transport: transport,
           socket: socket,
           mount: mount,
@@ -166,7 +163,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
           controller_state: controller_state,
           timeout_ref: timeout_ref,
           body_timeout: body_timeout
-        ) = data
+        } = data
       ) do
     Process.cancel_timer(timeout_ref)
 
@@ -180,7 +177,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :ok = transport.setopts(socket, active: true, packet: :raw, packet_size: 0)
 
         {:next_state, :body,
-         state_data(data, controller_state: new_controller_state, timeout_ref: tref)}
+         %StateData{data | controller_state: new_controller_state, timeout_ref: tref}}
 
       {:ok, {:deny, code}} ->
         shutdown_deny!(code, data)
@@ -194,11 +191,11 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:tcp_closed, _},
         _state,
-        state_data(
+        %StateData{
           controller_module: controller_module,
           controller_state: controller_state,
           remote_address: remote_address
-        )
+        }
       ) do
     :ok = controller_module.handle_closed(remote_address, controller_state)
     {:stop, :normal}
@@ -209,17 +206,17 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:payload, payload},
         :body,
-        state_data(
+        %StateData{
           transport: transport,
           body_timeout: body_timeout,
           socket: socket,
           timeout_ref: tref
-        ) = data
+        } = data
       ) do
     Process.cancel_timer(tref)
     tref = Process.send_after(self(), :timeout, body_timeout)
     :ok = transport.send(socket, payload)
-    {:next_state, :body, state_data(data, timeout_ref: tref)}
+    {:next_state, :body, %StateData{data | timeout_ref: tref}}
   end
 
   ## TIMEOUTS HANDLING
@@ -228,11 +225,11 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         :timeout,
         _state,
-        state_data(
+        %StateData{
           controller_module: controller_module,
           controller_state: controller_state,
           remote_address: remote_address
-        ) = data
+        } = data
       ) do
     :ok = controller_module.handle_timeout(remote_address, controller_state)
     send_response_and_close!("502 Gateway Timeout", data)
@@ -240,7 +237,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   ## HELPERS
 
-  defp handle_request!(mount, state_data(transport: transport, socket: socket) = data) do
+  defp handle_request!(mount, %StateData{transport: transport, socket: socket} = data) do
     if Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount)) do
       :ok =
         transport.setopts(socket,
@@ -249,7 +246,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
           packet_size: @http_packet_size
         )
 
-      {:next_state, :headers, state_data(data, mount: mount)}
+      {:next_state, :headers, %StateData{data | mount: mount}}
     else
       shutdown_invalid!({:mount, mount}, data)
     end
@@ -257,11 +254,11 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   defp shutdown_invalid!(
          reason,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
     send_response_and_close!("422 Unprocessable Entity", data)
@@ -269,11 +266,11 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   defp shutdown_bad_request!(
          reason,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, {:request, reason}, controller_state)
     send_response_and_close!("400 Bad Request", data)
@@ -281,11 +278,11 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   defp shutdown_method_not_allowed!(
          method,
-         state_data(
+         %StateData{
            controller_module: controller_module,
            controller_state: controller_state,
            remote_address: remote_address
-         ) = data
+         } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, {:method, method}, controller_state)
     send_response_and_close!("405 Method Not Allowed", [{"Allow", "GET"}], data)
@@ -316,7 +313,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
     send_response_and_close!("404 Not Found", [{"content-type", "text/html"}], body, data)
   end
 
-  defp shutdown_drop!(state_data(transport: transport, socket: socket)) do
+  defp shutdown_drop!(%StateData{transport: transport, socket: socket}) do
     :ok = transport.close(socket)
     {:stop, :normal}
   end
@@ -333,7 +330,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
          status,
          extra_headers,
          body,
-         state_data(transport: transport, socket: socket, server_string: server_string)
+         %StateData{transport: transport, socket: socket, server_string: server_string}
        ) do
     :ok = transport.send(socket, "HTTP/1.1 #{status}\r\n")
     :ok = transport.send(socket, "Connection: close\r\n")
