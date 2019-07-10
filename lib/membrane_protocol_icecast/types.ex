@@ -6,6 +6,6 @@ defmodule Membrane.Protocol.Icecast.Types do
   @type mount_t :: String.t()
   @type metadata_t :: binary | %{String.t() => String.t()}
   @type headers_t :: [] | [{String.t(), String.t()}]
-  @type username :: String.t
-  @type password :: String.t
+  @type username :: String.t()
+  @type password :: String.t()
 end

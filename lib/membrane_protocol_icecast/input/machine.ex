@@ -28,22 +28,22 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   defmodule StateData do
     defstruct allowed_methods: nil,
-      allowed_formats: nil,
-      controller_module: nil,
-      controller_state: nil,
-      remote_address: nil,
-      socket: nil,
-      transport: nil,
-      method: nil,
-      format: nil,
-      username: nil,
-      password: nil,
-      mount: nil,
-      headers: [],
-      server_string: nil,
-      request_timeout: nil,
-      body_timeout: nil,
-      timeout_ref: nil
+              allowed_formats: nil,
+              controller_module: nil,
+              controller_state: nil,
+              remote_address: nil,
+              socket: nil,
+              transport: nil,
+              method: nil,
+              format: nil,
+              username: nil,
+              password: nil,
+              mount: nil,
+              headers: [],
+              server_string: nil,
+              request_timeout: nil,
+              body_timeout: nil,
+              timeout_ref: nil
   end
 
   @impl true
@@ -58,20 +58,19 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
       {:ok, {:allow, new_controller_state}} ->
         timeout_ref = Process.send_after(self(), :timeout, request_timeout)
 
-        data =
-          %StateData{
-            controller_module: controller_module,
-            controller_state: new_controller_state,
-            remote_address: remote_address,
-            socket: socket,
-            transport: transport,
-            allowed_methods: allowed_methods,
-            allowed_formats: allowed_formats,
-            server_string: server_string,
-            request_timeout: request_timeout,
-            body_timeout: body_timeout,
-            timeout_ref: timeout_ref
-          }
+        data = %StateData{
+          controller_module: controller_module,
+          controller_state: new_controller_state,
+          remote_address: remote_address,
+          socket: socket,
+          transport: transport,
+          allowed_methods: allowed_methods,
+          allowed_formats: allowed_formats,
+          server_string: server_string,
+          request_timeout: request_timeout,
+          body_timeout: body_timeout,
+          timeout_ref: timeout_ref
+        }
 
         :ok =
           :inet.setopts(socket,
@@ -86,18 +85,17 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :gen_statem.enter_loop(__MODULE__, [], :request, data)
 
       {:ok, {:deny, code}} ->
-        data =
-          %StateData{
-            controller_module: controller_module,
-            remote_address: remote_address,
-            socket: socket,
-            transport: transport,
-            allowed_methods: allowed_methods,
-            allowed_formats: allowed_formats,
-            server_string: server_string,
-            request_timeout: request_timeout,
-            body_timeout: body_timeout
-          }
+        data = %StateData{
+          controller_module: controller_module,
+          remote_address: remote_address,
+          socket: socket,
+          transport: transport,
+          allowed_methods: allowed_methods,
+          allowed_formats: allowed_formats,
+          server_string: server_string,
+          request_timeout: request_timeout,
+          body_timeout: body_timeout
+        }
 
         shutdown_deny!(code, data)
 
@@ -207,10 +205,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         case String.split(credentials, ":", parts: 2) do
           [username, password] ->
             {:next_state, :headers,
-             %StateData{data |
-               username: username,
-               password: password,
-               headers: [{key, value} | headers]
+             %StateData{
+               data
+               | username: username,
+                 password: password,
+                 headers: [{key, value} | headers]
              }}
 
           _ ->

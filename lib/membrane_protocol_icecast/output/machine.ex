@@ -8,16 +8,16 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   defmodule StateData do
     defstruct controller_module: nil,
-      controller_state: nil,
-      remote_address: nil,
-      socket: nil,
-      transport: nil,
-      mount: nil,
-      headers: [],
-      server_string: nil,
-      request_timeout: nil,
-      body_timeout: nil,
-      timeout_ref: nil
+              controller_state: nil,
+              remote_address: nil,
+              socket: nil,
+              transport: nil,
+              mount: nil,
+              headers: [],
+              server_string: nil,
+              request_timeout: nil,
+              body_timeout: nil,
+              timeout_ref: nil
   end
 
   @impl true
@@ -32,18 +32,17 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
       {:ok, {:allow, new_controller_state}} ->
         timeout_ref = Process.send_after(self(), :timeout, request_timeout)
 
-        data =
-          %StateData{
-            controller_module: controller_module,
-            controller_state: new_controller_state,
-            remote_address: remote_address,
-            socket: socket,
-            transport: transport,
-            server_string: server_string,
-            request_timeout: request_timeout,
-            body_timeout: body_timeout,
-            timeout_ref: timeout_ref
-          }
+        data = %StateData{
+          controller_module: controller_module,
+          controller_state: new_controller_state,
+          remote_address: remote_address,
+          socket: socket,
+          transport: transport,
+          server_string: server_string,
+          request_timeout: request_timeout,
+          body_timeout: body_timeout,
+          timeout_ref: timeout_ref
+        }
 
         :ok =
           transport.setopts(socket,
@@ -58,16 +57,15 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :gen_statem.enter_loop(__MODULE__, [], :request, data)
 
       {:ok, {:deny, code}} ->
-        data =
-          %StateData{
-            controller_module: controller_module,
-            remote_address: remote_address,
-            socket: socket,
-            transport: transport,
-            server_string: server_string,
-            request_timeout: request_timeout,
-            body_timeout: body_timeout
-          }
+        data = %StateData{
+          controller_module: controller_module,
+          remote_address: remote_address,
+          socket: socket,
+          transport: transport,
+          server_string: server_string,
+          request_timeout: request_timeout,
+          body_timeout: body_timeout
+        }
 
         shutdown_deny!(code, data)
     end
