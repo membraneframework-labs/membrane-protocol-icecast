@@ -369,7 +369,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         } = data
       ) do
     :ok = controller_module.handle_timeout(remote_address, controller_state)
-    send_response_and_close!("502 Gateway Timeout", data)
+    send_response_and_close!(502, data)
   end
 
   ## HELPERS
@@ -396,7 +396,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
          } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
-    send_response_and_close!("401 Unauthorized", data)
+    send_response_and_close!(401, data)
   end
 
   defp shutdown_invalid!(
@@ -408,7 +408,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
          } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
-    send_response_and_close!("422 Unprocessable Entity", data)
+    send_response_and_close!(422, data)
   end
 
   defp shutdown_bad_request!(
@@ -420,7 +420,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
          } = data
        ) do
     :ok = controller_module.handle_invalid(remote_address, {:request, reason}, controller_state)
-    send_response_and_close!("400 Bad Request", data)
+    send_response_and_close!(400, data)
   end
 
   defp shutdown_method_not_allowed!(
@@ -442,19 +442,19 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
       end)
       |> Enum.join(", ")
 
-    send_response_and_close!("405 Method Not Allowed", [{"Allow", allowed_methods_header}], data)
+    send_response_and_close!(405, [{"Allow", allowed_methods_header}], data)
   end
 
   defp shutdown_deny!(:forbidden, data) do
-    send_response_and_close!("403 Forbidden", data)
+    send_response_and_close!(403, data)
   end
 
   defp shutdown_deny!(:unauthorized, data) do
-    send_response_and_close!("401 Unauthorized", data)
+    send_response_and_close!(401, data)
   end
 
   defp shutdown_internal(data) do
-    send_response_and_close!("500 Internal Server Error", data)
+    send_response_and_close!(500, data)
   end
 
   defp shutdown_drop!(%StateData{transport: transport, socket: socket}) do
@@ -463,16 +463,13 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     {:stop, :normal}
   end
 
-  defp send_response_and_close!(status, data) do
-    send_response_and_close!(status, [], data)
-  end
-
   defp send_response_and_close!(
          status,
-         extra_headers,
+         extra_headers \\ [],
          %StateData{transport: transport, socket: socket, server_string: server_string}
        ) do
-    :ok = transport.send(socket, "#{@http_and_version} #{status}\r\n")
+    status_line = get_status_line(status)
+    :ok = transport.send(socket, "#{@http_and_version} #{status_line}\r\n")
     :ok = transport.send(socket, "Connection: close\r\n")
     :ok = transport.send(socket, "Server: #{server_string}\r\n")
 
@@ -495,4 +492,15 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
       _ -> :error
     end
   end
+
+  # TODO move to common functions (when this exists)
+  defp get_status_line(200), do: "200 OK"
+  defp get_status_line(400), do: "400 Bad Request"
+  defp get_status_line(401), do: "401 Unauthorized"
+  defp get_status_line(403), do: "403 Forbidden"
+  defp get_status_line(404), do: "404 Not Found"
+  defp get_status_line(405), do: "405 Method Not Allowed"
+  defp get_status_line(422), do: "422 Unprocessable Entity"
+  defp get_status_line(500), do: "500 Internal Server Error"
+  defp get_status_line(502), do: "502 Gateway Timeout"
 end
