@@ -20,6 +20,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   import Membrane.Protocol.Icecast.Helpers
 
+  alias Membrane.Protocol.Transport
+  alias Membrane.Protocol.Icecast.Types
+  alias Membrane.Protocol.Icecast.Input
+
   # Maximum line length while while reading HTTP part of the protocol
   @http_packet_size 8192
   # Maximum amount of headers while reading HTTP part of the protocol
@@ -51,6 +55,17 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   @impl true
+  @spec init(%{
+        socket: Transport.socket(),
+        transport: Transport.t(),
+        controller_module: Input.Controller.t(),
+        controller_arg: any(),
+        allowed_methods: [Types.method_t()],
+        allowed_formats: [Types.format_t()],
+        server_string: String.t,
+        request_timeout: integer(),
+        body_timeout: integer()
+      }) :: no_return
   def init(%{
         socket: socket,
         transport: transport,

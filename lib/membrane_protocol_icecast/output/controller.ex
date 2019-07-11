@@ -1,5 +1,8 @@
 defmodule Membrane.Protocol.Icecast.Output.Controller do
   alias Membrane.Protocol.Icecast.Types
+
+  @type t :: module()
+
   @type state_t :: any
 
   @type invalid_reason_t ::

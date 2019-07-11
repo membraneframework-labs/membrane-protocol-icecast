@@ -1,6 +1,8 @@
 defmodule Membrane.Protocol.Icecast.Input.Controller do
   alias Membrane.Protocol.Icecast.Types
 
+  @type t :: module()
+
   @type state_t :: any
 
   @type payload_t :: binary
