@@ -28,6 +28,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   @http_and_version "HTTP/1.0"
   @default_format :mp3
 
+  @known_format_headers ["audio/mpeg", "audio/ogg"]
+
   defmodule StateData do
     defstruct allowed_methods: nil,
               allowed_formats: nil,
@@ -177,70 +179,15 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     shutdown_invalid!(:too_many_headers, data)
   end
 
-  # Handle Content-Type header if the format is MP3.
+  # Handle correct header event
   def handle_event(
         :info,
-        {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/mpeg" = value}},
+        {:http, _socket, {:http_header, _, key, _, val}},
         :headers,
-        %StateData{socket: socket, headers: headers} = data
+        state_data
       ) do
-    :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-    {:next_state, :headers, %StateData{data | format: :mp3, headers: [{key, value} | headers]}}
-  end
-
-  # Handle Content-Type header if the format is Ogg audio.
-  def handle_event(
-        :info,
-        {:http, _socket, {:http_header, _, :"Content-Type" = key, _, "audio/ogg" = value}},
-        :headers,
-        %StateData{socket: socket, headers: headers} = data
-      ) do
-    :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-    {:next_state, :headers, %StateData{data | format: :ogg, headers: [{key, value} | headers]}}
-  end
-
-  # Handle Authorization header if it is using HTTP Basic Auth.
-  def handle_event(
-        :info,
-        {:http, _socket,
-         {:http_header, _, :Authorization = key, _, "Basic " <> credentials_encoded = value}},
-        :headers,
-        %StateData{socket: socket, headers: headers} = data
-      ) do
-    :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-
-    case Base.decode64(credentials_encoded) do
-      {:ok, credentials} ->
-        case String.split(credentials, ":", parts: 2) do
-          [username, password] ->
-            {:next_state, :headers,
-             %StateData{
-               data
-               | username: username,
-                 password: password,
-                 headers: [{key, value} | headers]
-             }}
-
-          _ ->
-            {:next_state, :headers,
-             %StateData{data | username: nil, password: nil, headers: [{key, value} | headers]}}
-        end
-
-      :error ->
-        {:next_state, :headers,
-         %StateData{data | username: nil, password: nil, headers: [{key, value} | headers]}}
-    end
-  end
-
-  # Handle each extra header being sent from the client that was not handled before.
-  def handle_event(
-        :info,
-        {:http, _socket, {:http_header, _, key, _, value}},
-        :headers,
-        %StateData{socket: socket, headers: headers} = data
-      ) do
-    :ok = :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
-    {:next_state, :headers, %StateData{data | headers: [{key, value} | headers]}}
+    next_state_data = handle_header(key, val, state_data)
+    {:next_state, :headers, next_state_data}
   end
 
   # Handle HTTP error while reading headers.
@@ -380,8 +327,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   defp handle_request!(method, mount, %StateData{socket: socket} = data) do
     if valid_mount?(mount) do
-      :ok =
-        :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
+      :ok = activate_once(socket)
 
       {:next_state, :headers, %StateData{data | method: method, mount: mount}}
     else
@@ -506,4 +452,62 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   defp get_status_line(422), do: "422 Unprocessable Entity"
   defp get_status_line(500), do: "500 Internal Server Error"
   defp get_status_line(502), do: "502 Gateway Timeout"
+
+  defp handle_header(
+         :"Content-Type" = key,
+         format,
+         %StateData{socket: socket, headers: headers} = data
+       )
+       when format in @known_format_headers do
+    :ok = activate_once(socket)
+    format_atom = format_header_to_atom(format)
+    %StateData{data | format: format_atom, headers: [{key, format} | headers]}
+  end
+
+  defp handle_header(
+         :Authorization = key,
+         "Basic " <> credentials_encoded = val,
+         %StateData{socket: socket, headers: headers} = data
+       ) do
+    :ok = activate_once(socket)
+
+    with {:ok, {username, password}} <- base64_to_credentials(credentials_encoded) do
+      %StateData{
+        data
+        | username: username,
+          password: password,
+          headers: [{key, val} | headers]
+      }
+    else
+      _ ->
+        %StateData{data | username: nil, password: nil, headers: [{key, val} | headers]}
+    end
+  end
+
+  defp handle_header(key, val, %StateData{socket: socket, headers: headers} = data) do
+    :ok = activate_once(socket)
+    %StateData{data | headers: [{key, val} | headers]}
+  end
+
+  defp format_header_to_atom("audio/mpeg"), do: :mp3
+  defp format_header_to_atom("audio/ogg"), do: :ogg
+
+  defp activate_once(socket),
+    do: :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
+
+  defp base64_to_credentials(credentials_encoded) do
+    case Base.decode64(credentials_encoded) do
+      {:ok, credentials} ->
+        case String.split(credentials, ":", parts: 2) do
+          [username, password] ->
+            {:ok, {username, password}}
+
+          _ ->
+            :error
+        end
+
+      :error ->
+        :error
+    end
+  end
 end
