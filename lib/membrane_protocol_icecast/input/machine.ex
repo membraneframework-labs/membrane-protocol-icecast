@@ -18,6 +18,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   @behaviour :gen_statem
 
+  import Membrane.Protocol.Icecast.Helpers
+
   # Maximum line length while while reading HTTP part of the protocol
   @http_packet_size 8192
   # Maximum amount of headers while reading HTTP part of the protocol
@@ -299,7 +301,9 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
            ) do
         {:ok, {:allow, new_controller_state}} ->
           # TODO use 100-Continue?
-          :ok = transport.send(socket, "#{@http_and_version} 200 OK\r\nConnection: close\r\n\r\n")
+          :ok = send_line(transport, socket, "#{@http_and_version} #{get_status_line(200)}")
+          :ok = send_line(transport, socket, "Connection: close")
+          :ok = send_line(transport, socket)
           :ok = :inet.setopts(socket, active: true, packet: :raw, packet_size: 0, keepalive: true)
 
           {:next_state, :body,
@@ -458,7 +462,6 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   defp shutdown_drop!(%StateData{transport: transport, socket: socket}) do
-    transport.send(socket, "ala ma kota")
     :ok = transport.close(socket)
     {:stop, :normal}
   end
@@ -469,18 +472,18 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
          %StateData{transport: transport, socket: socket, server_string: server_string}
        ) do
     status_line = get_status_line(status)
-    :ok = transport.send(socket, "#{@http_and_version} #{status_line}\r\n")
-    :ok = transport.send(socket, "Connection: close\r\n")
-    :ok = transport.send(socket, "Server: #{server_string}\r\n")
+    :ok = send_line(transport, socket, "#{@http_and_version} #{status_line}")
+    :ok = send_line(transport, socket, "Connection: close")
+    :ok = send_line(transport, socket, "Server: #{server_string}")
 
     extra_headers
     |> Enum.each(fn {key, value} ->
-      :ok = transport.send(socket, "#{key}: #{value}\r\n")
+      :ok = send_line(transport, socket, "#{key}: #{value}")
     end)
 
     # TODO add date header
 
-    :ok = transport.send(socket, "\r\n")
+    :ok = send_line(transport, socket)
     :ok = transport.close(socket)
     {:stop, :normal}
   end
