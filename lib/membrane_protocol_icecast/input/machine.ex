@@ -133,9 +133,9 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   ## REQUEST LINE HANDLING
 
-  @impl true
   # Handle the request line of the incoming connection if it is
   # PUT /mount HTTP/1.1 (for the new icecast2 protocol)
+  @impl true
   def handle_event(
         :info,
         {:http, _socket, {:http_request, :PUT, {:abs_path, mount}, {1, 1}}},
@@ -151,6 +151,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   # Handle the request line of the incoming connection if it is
   # SOURCE /mount HTTP/1.0 (for the older icecast2 protocol). TODO make sure it is NOT 1.0 only (also 1.1)
+  @impl true
   def handle_event(
         :info,
         {:http, _socket, {:http_request, "SOURCE", {:abs_path, mount}, {1, _}}},
@@ -165,6 +166,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle the request line if it is not recognized.
+  @impl true
   def handle_event(
         :info,
         {:http, _socket, {:http_request, method, {:abs_path, mount}, version}},
@@ -175,6 +177,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle HTTP error while reading request line.
+  @impl true
   def handle_event(:info, {:http, _socket, {:http_error, request}}, :request, data) do
     shutdown_bad_request!({:request, request}, data)
   end
@@ -182,6 +185,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   ## HEADERS HANDLING
 
   # Handle too many headers being sent by the client to avoid DoS.
+  @impl true
   def handle_event(
         :info,
         {:http, _socket, {:http_header, _, _key, _, _value}},
@@ -193,6 +197,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle correct header event
+  @impl true
   def handle_event(
         :info,
         {:http, _socket, {:http_header, _, key, _, val}},
@@ -204,6 +209,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   # Handle HTTP error while reading headers.
+  @impl true
   def handle_event(:info, {:http, _socket, {:http_error, header}}, :headers, data) do
     shutdown_bad_request!({:header, header}, data)
   end
@@ -211,16 +217,19 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   ## END OF HEADERS HANDLING
 
   # Handle end of headers if username was not given.
+  @impl true
   def handle_event(:info, {:http, _socket, :http_eoh}, :headers, %StateData{username: nil} = data) do
     shutdown_invalid!(:unauthorized, data)
   end
 
   # Handle end of headers if password was not given.
+  @impl true
   def handle_event(:info, {:http, _socket, :http_eoh}, :headers, %StateData{password: nil} = data) do
     shutdown_invalid!(:unauthorized, data)
   end
 
   # Handle end of headers if format was recognized and username/password are given.
+  @impl true
   def handle_event(
         :info,
         {:http, _socket, :http_eoh},
@@ -283,6 +292,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   ## SOCKET HANDLING
 
+  @impl true
   # Handle payload arriving from the client size.
   def handle_event(
         :info,
@@ -309,6 +319,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     end
   end
 
+  @impl true
   # Handle connection closed from the client size.
   def handle_event(
         :info,
@@ -326,6 +337,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   ## TIMEOUTS HANDLING
 
+  @impl true
   def handle_event(
         :info,
         :timeout,
