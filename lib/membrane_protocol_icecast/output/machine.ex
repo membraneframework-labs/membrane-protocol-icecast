@@ -254,20 +254,17 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   ## HELPERS
 
-  defp handle_request!(mount, %StateData{transport: transport, socket: socket} = data) do
-    if Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount)) do
-      :ok =
-        transport.setopts(socket,
-          active: :once,
-          packet: :httph_bin,
-          packet_size: @http_packet_size
-        )
+  defp handle_request!(mount, %StateData{socket: socket} = data) do
+    if valid_mount?(mount) do
+      :ok = activate_once(socket)
 
       {:next_state, :headers, %StateData{data | mount: mount}}
     else
       shutdown_invalid!({:mount, mount}, data)
     end
   end
+
+  defp valid_mount?(mount), do: Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount))
 
   defp shutdown_invalid!(
          reason,
@@ -387,4 +384,8 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   defp get_status_line(422), do: "422 Unprocessable Entity"
   defp get_status_line(500), do: "500 Internal Server Error"
   defp get_status_line(502), do: "502 Gateway Timeout"
+
+
+  defp activate_once(socket),
+    do: :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
 end
