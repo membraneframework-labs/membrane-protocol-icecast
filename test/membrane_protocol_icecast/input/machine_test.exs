@@ -37,13 +37,13 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       end
     end
 
-    def handle_source(address, method, state,
+    def handle_source(address, method, state, %{
           format: format,
           mount: mount,
           username: user,
           password: pass,
           headers: headers
-        ) do
+        }) do
       Recorder.push({:handle_source, address, method, format, mount, user, pass, headers, state})
 
       if user == TestControllerUtils.authorized_user() do

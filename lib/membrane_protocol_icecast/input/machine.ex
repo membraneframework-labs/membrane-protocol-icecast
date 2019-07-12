@@ -257,13 +257,13 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     Process.cancel_timer(timeout_ref)
     new_timeout_ref = Process.send_after(self(), :timeout, body_timeout)
 
-    controller_opts = [
+    controller_opts = %{
       format: format,
       mount: mount,
       username: username,
       password: password,
       headers: headers
-    ]
+    }
 
     with {_, true} <- {:allowed_format?, Enum.member?(allowed_formats, format)},
          {:ok, {:allow, new_controller_state}} <-

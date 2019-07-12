@@ -33,11 +33,13 @@ defmodule Membrane.Protocol.Icecast.Input.Controller do
               Types.remote_address_t(),
               Types.method_t(),
               state_t,
-              format: Types.format_t(),
-              mount: Types.mount_t(),
-              username: Types.username(),
-              password: Types.password(),
-              headers: Types.headers_t()
+              %{
+                format: Types.format_t(),
+                mount: Types.mount_t(),
+                username: Types.username(),
+                password: Types.password(),
+                headers: Types.headers_t()
+              }
             ) :: source_reply_t
 
   # Ongoing actions
