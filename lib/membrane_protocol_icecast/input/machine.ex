@@ -250,32 +250,36 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     Process.cancel_timer(timeout_ref)
     new_timeout_ref = Process.send_after(self(), :timeout, body_timeout)
 
-    if Enum.member?(allowed_formats, format) do
-      case controller_module.handle_source(
+    controller_opts = [
+      format: format,
+      mount: mount,
+      username: username,
+      password: password,
+      headers: headers
+    ]
+
+    with {_, true} <- {:allowed_format?, Enum.member?(allowed_formats, format)},
+         {:ok, {:allow, new_controller_state}} <-
+           controller_module.handle_source(
              remote_address,
              method,
              controller_state,
-             format: format,
-             mount: mount,
-             username: username,
-             password: password,
-             headers: headers
+             controller_opts
            ) do
-        {:ok, {:allow, new_controller_state}} ->
-          # TODO use 100-Continue?
-          :ok = send_line(transport, socket, "#{@http_and_version} #{get_status_line(200)}")
-          :ok = send_line(transport, socket, "Connection: close")
-          :ok = send_line(transport, socket)
-          :ok = :inet.setopts(socket, active: true, packet: :raw, packet_size: 0, keepalive: true)
+      # TODO use 100-Continue?
+      :ok = send_line(transport, socket, "#{@http_and_version} #{get_status_line(200)}")
+      :ok = send_line(transport, socket, "Connection: close")
+      :ok = send_line(transport, socket)
+      :ok = :inet.setopts(socket, active: true, packet: :raw, packet_size: 0, keepalive: true)
 
-          {:next_state, :body,
-           %StateData{data | controller_state: new_controller_state, timeout_ref: new_timeout_ref}}
-
-        {:ok, {:deny, code}} ->
-          shutdown_deny!(code, data)
-      end
+      {:next_state, :body,
+       %StateData{data | controller_state: new_controller_state, timeout_ref: new_timeout_ref}}
     else
-      shutdown_invalid!({:format_not_allowed, format}, data)
+      {:ok, {:deny, code}} ->
+        shutdown_deny!(code, data)
+
+      {:allowed_format?, false} ->
+        shutdown_invalid!({:format_not_allowed, format}, data)
     end
   end
 
