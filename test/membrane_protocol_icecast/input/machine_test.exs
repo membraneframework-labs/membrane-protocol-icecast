@@ -357,6 +357,24 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert {:handle_source, _, _, ^default_format, _, _, _, _, _} = Recorder.get()
     end
 
+    test "Default format is taken when unknown format is provided", %{conn: conn} do
+      basic_auth = encode_user_pass(TestControllerUtils.authorized_user(), "i<3romeo")
+      default_format = :mp3
+
+      {:ok, conn, _req_ref} =
+        HTTP1.request(
+          conn,
+          "SOURCE",
+          "/my_mountpoint",
+          [{"Authorization", basic_auth}, {"Content-Type", "some-unknown-format"}],
+          ""
+        )
+
+      conn |> wait_for_tcp()
+
+      assert {:handle_source, _, _, ^default_format, _, _, _, _, _} = Recorder.get()
+    end
+
     test "handle_source/8 can deny the connection", %{conn: conn} do
       basic_auth = encode_user_pass(TestControllerUtils.unauthorized_user(), "i<3juliet")
 
