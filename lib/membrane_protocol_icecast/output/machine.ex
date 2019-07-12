@@ -6,8 +6,6 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   alias Membrane.Protocol.Transport
   alias Membrane.Protocol.Icecast.Output
 
-  # Maximum line length while while reading HTTP part of the protocol
-  @http_packet_size 8192
   # Maximum amount of headers while reading HTTP part of the protocol
   @http_max_headers 64
 
@@ -67,7 +65,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
           transport.setopts(socket,
             active: :once,
             packet: :http_bin,
-            packet_size: @http_packet_size,
+            packet_size: http_packet_size(),
             keepalive: true,
             send_timeout: body_timeout,
             send_timeout_close: true
@@ -113,7 +111,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :request,
         data
       ) do
-    shutdown_method_not_allowed!(method, data)
+    shutdown_method_not_allowed!(method, [:get], data)
   end
 
   # Handle the request line if it is not recognized.
@@ -153,7 +151,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         %StateData{transport: transport, socket: socket, headers: headers} = data
       ) do
     :ok =
-      transport.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
+      transport.setopts(socket, active: :once, packet: :httph_bin, packet_size: http_packet_size())
 
     {:next_state, :headers, %StateData{data | headers: [{key, value} | headers]}}
   end
@@ -264,128 +262,6 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
     end
   end
 
-  defp valid_mount?(mount), do: Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount))
-
-  defp shutdown_invalid!(
-         reason,
-         %StateData{
-           controller_module: controller_module,
-           controller_state: controller_state,
-           remote_address: remote_address
-         } = data
-       ) do
-    :ok = controller_module.handle_invalid(remote_address, reason, controller_state)
-    send_response_and_close!(422, data)
-  end
-
-  defp shutdown_bad_request!(
-         reason,
-         %StateData{
-           controller_module: controller_module,
-           controller_state: controller_state,
-           remote_address: remote_address
-         } = data
-       ) do
-    :ok = controller_module.handle_invalid(remote_address, {:request, reason}, controller_state)
-    send_response_and_close!(400, data)
-  end
-
-  defp shutdown_method_not_allowed!(
-         method,
-         %StateData{
-           controller_module: controller_module,
-           controller_state: controller_state,
-           remote_address: remote_address
-         } = data
-       ) do
-    :ok = controller_module.handle_invalid(remote_address, {:method, method}, controller_state)
-    send_response_and_close!(405, [{"Allow", "GET"}], data)
-  end
-
-  defp shutdown_deny!(:unauthorized, data) do
-    send_response_and_close!(401, data)
-  end
-
-  defp shutdown_deny!(:forbidden, data) do
-    send_response_and_close!(403, data)
-  end
-
-  defp shutdown_deny!(:not_found, data) do
-    body = """
-    <html>
-      <head>
-        <title>
-          Error 404
-        </title>
-      </head>
-      <body>
-        <b>404 - The file you requested could not be found</b>
-      </body>
-    </html>
-    """
-
-    send_response_and_close!(404, [{"content-type", "text/html"}], body, data)
-  end
-
-  defp shutdown_drop!(%StateData{transport: transport, socket: socket}) do
-    :ok = transport.close(socket)
-    {:stop, :normal}
-  end
-
-  defp send_response_and_close!(status, data) do
-    send_response_and_close!(status, [], "", data)
-  end
-
-  defp send_response_and_close!(status, extra_headers, data) do
-    send_response_and_close!(status, extra_headers, "", data)
-  end
-
-  defp send_response_and_close!(
-         status,
-         extra_headers,
-         body,
-         %StateData{transport: transport, socket: socket, server_string: server_string}
-       ) do
-    status_line = get_status_line(status)
-    :ok = send_line(transport, socket, "HTTP/1.1 #{status_line}")
-    :ok = send_line(transport, socket, "Connection: close")
-    :ok = send_line(transport, socket, "Server: #{server_string}")
-
-    extra_headers
-    |> Enum.each(fn {key, value} ->
-      :ok = send_line(transport, socket, "#{key}: #{value}")
-    end)
-
-    # TODO add date header
-    case body do
-      "" ->
-        :ok
-
-      _ ->
-        :ok = send_line(transport, socket)
-        transport.send(socket, body)
-    end
-
-    :ok = send_line(transport, socket)
-    :ok = transport.close(socket)
-    {:stop, :normal}
-  end
-
   defp format_to_content_type(:mp3), do: "Content-Type: audio/mpeg\r\n"
   defp format_to_content_type(:ogg), do: "Content-Type: audio/ogg\r\n"
-
-  # TODO move to common functions (when this exists)
-  defp get_status_line(200), do: "200 OK"
-  defp get_status_line(400), do: "400 Bad Request"
-  defp get_status_line(401), do: "401 Unauthorized"
-  defp get_status_line(403), do: "403 Forbidden"
-  defp get_status_line(404), do: "404 Not Found"
-  defp get_status_line(405), do: "405 Method Not Allowed"
-  defp get_status_line(422), do: "422 Unprocessable Entity"
-  defp get_status_line(500), do: "500 Internal Server Error"
-  defp get_status_line(502), do: "502 Gateway Timeout"
-
-
-  defp activate_once(socket),
-    do: :inet.setopts(socket, active: :once, packet: :httph_bin, packet_size: @http_packet_size)
 end
