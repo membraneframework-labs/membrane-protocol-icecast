@@ -26,11 +26,9 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       Recorder.push({:handle_incoming, remote_address, controller_state})
 
       case controller_state do
-        %{raise_handle_incoming: e} -> raise e
-        _ -> :ok
-      end
+        %{return_error: e} ->
+          {:error, e}
 
-      case controller_state do
         %{let_in?: {false, code}} ->
           {:ok, {:deny, code}}
 
@@ -155,12 +153,12 @@ defmodule Membrane.Protocol.Icecast.Input.MachineTest do
       assert {:ok, {:http_response, _, 403, 'Forbidden'}} = resp
     end
 
-    test "machine exits and connection is closed if handle_incoming/2 raises", %{
+    test "machine exits and connection is closed if handle_incoming/2 returns error", %{
       socket: socket,
       conn: conn
     } do
       :erlang.process_flag(:trap_exit, true)
-      argument = %{raise_handle_incoming: "some runtime error"}
+      argument = %{return_error: "some error"}
 
       machine =
         :proc_lib.spawn_link(:gen_statem, :start_link, [

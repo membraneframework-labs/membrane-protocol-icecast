@@ -27,14 +27,14 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
 
   @impl true
   @spec init(%{
-        socket: Transport.socket(),
-        transport: Transport.t(),
-        controller_module: Output.Controller.t(),
-        controller_arg: any(),
-        server_string: String.t,
-        request_timeout: integer(),
-        body_timeout: integer()
-      }) :: no_return
+          socket: Transport.socket(),
+          transport: Transport.t(),
+          controller_module: Output.Controller.t(),
+          controller_arg: any(),
+          server_string: String.t(),
+          request_timeout: integer(),
+          body_timeout: integer()
+        }) :: no_return
   def init(%{
         socket: socket,
         transport: transport,

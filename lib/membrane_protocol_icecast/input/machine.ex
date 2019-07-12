@@ -56,16 +56,16 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   @impl true
   @spec init(%{
-        socket: Transport.socket(),
-        transport: Transport.t(),
-        controller_module: Input.Controller.t(),
-        controller_arg: any(),
-        allowed_methods: [Types.method_t()],
-        allowed_formats: [Types.format_t()],
-        server_string: String.t,
-        request_timeout: integer(),
-        body_timeout: integer()
-      }) :: no_return
+          socket: Transport.socket(),
+          transport: Transport.t(),
+          controller_module: Input.Controller.t(),
+          controller_arg: any(),
+          allowed_methods: [Types.method_t()],
+          allowed_formats: [Types.format_t()],
+          server_string: String.t(),
+          request_timeout: integer(),
+          body_timeout: integer()
+        }) :: no_return
   def init(%{
         socket: socket,
         transport: transport,
@@ -80,7 +80,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     {:ok, controller_state} = controller_module.handle_init(controller_arg)
     {:ok, remote_address} = :inet.peername(socket)
 
-    case try_handle(controller_module, :handle_incoming, [remote_address, controller_state]) do
+    case controller_module.handle_incoming(remote_address, controller_state) do
       {:ok, {:allow, new_controller_state}} ->
         timeout_ref = Process.send_after(self(), :timeout, request_timeout)
 
@@ -125,7 +125,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
         shutdown_deny!(code, data)
 
-      :error ->
+      _ ->
         shutdown_internal(%StateData{socket: socket, transport: transport})
     end
   end
@@ -447,14 +447,6 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     :ok = send_line(transport, socket)
     :ok = transport.close(socket)
     {:stop, :normal}
-  end
-
-  defp try_handle(m, f, a) do
-    try do
-      :erlang.apply(m, f, a)
-    rescue
-      _ -> :error
-    end
   end
 
   # TODO move to common functions (when this exists)
