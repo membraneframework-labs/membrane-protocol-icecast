@@ -1,6 +1,8 @@
 defmodule Membrane.Protocol.Icecast.Helpers do
   @eof "\r\n"
 
+  require Logger
+
   # Maximum line length while while reading HTTP part of the protocol
   def http_packet_size, do: 8192
 
@@ -24,6 +26,7 @@ defmodule Membrane.Protocol.Icecast.Helpers do
         body,
         %{transport: transport, socket: socket, server_string: server_string}
       ) do
+    log("Closing machine with status #{inspect(status)}", :info)
     status_line = get_status_line(status)
     :ok = send_line(transport, socket, "HTTP/1.1 #{status_line}")
     :ok = send_line(transport, socket, "Connection: close")
@@ -153,5 +156,17 @@ defmodule Membrane.Protocol.Icecast.Helpers do
 
   def shutdown_internal(data) do
     send_response_and_close!(500, data)
+  end
+
+  def log(msg), do: log(msg, :info)
+
+  def log(msg, :info) do
+    me = inspect(self())
+    Logger.info("(#{me}) #{msg}")
+  end
+
+  def log(msg, :debug) do
+    me = inspect(self())
+    Logger.debug("(#{me}) #{msg}")
   end
 end

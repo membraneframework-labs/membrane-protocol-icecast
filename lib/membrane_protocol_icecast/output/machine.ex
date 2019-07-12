@@ -33,17 +33,27 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
           request_timeout: integer(),
           body_timeout: integer()
         }) :: no_return
-  def init(%{
-        socket: socket,
-        transport: transport,
-        controller_module: controller_module,
-        controller_arg: controller_arg,
-        server_string: server_string,
-        request_timeout: request_timeout,
-        body_timeout: body_timeout
-      }) do
+  def init(
+        %{
+          socket: socket,
+          transport: transport,
+          controller_module: controller_module,
+          controller_arg: controller_arg,
+          server_string: server_string,
+          request_timeout: request_timeout,
+          body_timeout: body_timeout
+        } = arg
+      ) do
     {:ok, controller_state} = controller_module.handle_init(controller_arg)
     {:ok, remote_address} = :inet.peername(socket)
+
+    log(
+      "Initializing output machine on transport #{inspect(transport)} with #{
+        inspect(controller_module)
+      }.init(#{inspect(controller_arg)})"
+    )
+
+    log("Input machine init argument: #{inspect(arg)}", :debug)
 
     case controller_module.handle_incoming(remote_address, controller_state) do
       {:ok, {:allow, new_controller_state}} ->

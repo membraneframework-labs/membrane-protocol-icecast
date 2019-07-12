@@ -18,6 +18,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   @behaviour :gen_statem
 
+  require Logger
+
   import Membrane.Protocol.Icecast.Helpers
 
   alias Membrane.Protocol.Transport
@@ -64,19 +66,29 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
           request_timeout: integer(),
           body_timeout: integer()
         }) :: no_return
-  def init(%{
-        socket: socket,
-        transport: transport,
-        controller_module: controller_module,
-        controller_arg: controller_arg,
-        allowed_methods: allowed_methods,
-        allowed_formats: allowed_formats,
-        server_string: server_string,
-        request_timeout: request_timeout,
-        body_timeout: body_timeout
-      }) do
+  def init(
+        %{
+          socket: socket,
+          transport: transport,
+          controller_module: controller_module,
+          controller_arg: controller_arg,
+          allowed_methods: allowed_methods,
+          allowed_formats: allowed_formats,
+          server_string: server_string,
+          request_timeout: request_timeout,
+          body_timeout: body_timeout
+        } = arg
+      ) do
     {:ok, controller_state} = controller_module.handle_init(controller_arg)
     {:ok, remote_address} = :inet.peername(socket)
+
+    log(
+      "Initializing input machine on transport #{inspect(transport)} with #{
+        inspect(controller_module)
+      }.init(#{inspect(controller_arg)})"
+    )
+
+    log("Input machine init argument: #{inspect(arg)}", :debug)
 
     case controller_module.handle_incoming(remote_address, controller_state) do
       {:ok, {:allow, new_controller_state}} ->
@@ -274,6 +286,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
              controller_opts
            ) do
       # TODO use 100-Continue?
+      log("Source client accepted")
       :ok = send_line(transport, socket, "#{@http_and_version} #{get_status_line(200)}")
       :ok = send_line(transport, socket, "Connection: close")
       :ok = send_line(transport, socket)
@@ -283,6 +296,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
        %StateData{data | controller_state: new_controller_state, timeout_ref: new_timeout_ref}}
     else
       {:ok, {:deny, code}} ->
+        log("Source client denied")
         shutdown_deny!(code, data)
 
       {:allowed_format?, false} ->
