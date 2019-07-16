@@ -161,7 +161,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     if Enum.member?(allowed_methods, :put) do
       handle_request!(:put, mount, data)
     else
-      shutdown_method_not_allowed!(:put, data.allowed_methods, data)
+      shutdown_method_not_allowed!(:put, allowed_methods, data)
     end
   end
 
@@ -179,7 +179,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     if Enum.member?(allowed_methods, :source) do
       handle_request!(:source, mount, data)
     else
-      shutdown_method_not_allowed!(:source, data.allowed_methods, data)
+      shutdown_method_not_allowed!(:source, allowed_methods, data)
     end
   end
 
