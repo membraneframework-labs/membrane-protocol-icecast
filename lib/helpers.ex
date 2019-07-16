@@ -12,18 +12,10 @@ defmodule Membrane.Protocol.Icecast.Helpers do
 
   def valid_mount?(mount), do: Regex.match?(~r/^\/[a-zA-Z0-9\._-]+/, to_string(mount))
 
-  def send_response_and_close!(status, data) do
-    send_response_and_close!(status, [], "", data)
-  end
-
-  def send_response_and_close!(status, extra_headers, data) do
-    send_response_and_close!(status, extra_headers, "", data)
-  end
-
   def send_response_and_close!(
         status,
-        extra_headers,
-        body,
+        extra_headers \\ [],
+        body \\ "",
         %{transport: transport, socket: socket, server_string: server_string}
       ) do
     log("Closing machine with status #{inspect(status)}", :info)
