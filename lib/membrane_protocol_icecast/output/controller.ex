@@ -6,7 +6,7 @@ defmodule Membrane.Protocol.Icecast.Output.Controller do
   @type state_t :: any
 
   @type invalid_reason_t ::
-          {:request, {:request, any} | {:header, binary} | {any, any, any}}
+          {:request, {:request, any} | {:header, binary}}
           | {:method, atom | charlist}
           | {:mount, binary}
           | :format_unknown
