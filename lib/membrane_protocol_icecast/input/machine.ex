@@ -34,6 +34,18 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
   @known_format_headers ["audio/mpeg", "audio/ogg"]
 
+  @type opts :: %{
+          socket: Transport.socket(),
+          transport: Transport.t(),
+          controller_module: Input.Controller.t(),
+          controller_arg: any(),
+          allowed_methods: [Types.method_t()],
+          allowed_formats: [Types.format_t()],
+          server_string: String.t(),
+          request_timeout: integer(),
+          body_timeout: integer()
+        }
+
   defmodule StateData do
     defstruct allowed_methods: nil,
               allowed_formats: nil,
@@ -55,17 +67,7 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   end
 
   @impl true
-  @spec init(%{
-          socket: Transport.socket(),
-          transport: Transport.t(),
-          controller_module: Input.Controller.t(),
-          controller_arg: any(),
-          allowed_methods: [Types.method_t()],
-          allowed_formats: [Types.format_t()],
-          server_string: String.t(),
-          request_timeout: integer(),
-          body_timeout: integer()
-        }) :: no_return
+  @spec init(opts()) :: no_return
   def init(
         %{
           socket: socket,
