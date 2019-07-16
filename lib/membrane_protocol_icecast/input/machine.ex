@@ -154,8 +154,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_request, :PUT, {:abs_path, mount}, {1, 1}}},
         :request,
-        %StateData{allowed_methods: allowed_methods} = data
+        data
       ) do
+    %StateData{allowed_methods: allowed_methods} = data
+
     if Enum.member?(allowed_methods, :put) do
       handle_request!(:put, mount, data)
     else
@@ -170,8 +172,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, {:http_request, "SOURCE", {:abs_path, mount}, {1, _}}},
         :request,
-        %StateData{allowed_methods: allowed_methods} = data
+        data
       ) do
+    %StateData{allowed_methods: allowed_methods} = data
+
     if Enum.member?(allowed_methods, :source) do
       handle_request!(:source, mount, data)
     else
@@ -206,9 +210,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :headers,
         %StateData{headers: headers} = data
       )
-      when length(headers) > @http_max_headers do
-    shutdown_invalid!(:too_many_headers, data)
-  end
+  when length(headers) >
+         @http_max_headers do
+           shutdown_invalid!(:too_many_headers, data)
+         end
 
   # Handle correct header event
   @impl true
@@ -248,23 +253,25 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:http, _socket, :http_eoh},
         :headers,
-        %StateData{
-          transport: transport,
-          socket: socket,
-          method: method,
-          format: format,
-          mount: mount,
-          username: username,
-          password: password,
-          headers: headers,
-          remote_address: remote_address,
-          controller_module: controller_module,
-          controller_state: controller_state,
-          allowed_formats: allowed_formats,
-          body_timeout: body_timeout,
-          timeout_ref: timeout_ref
-        } = data
+        data
       ) do
+    %StateData{
+      transport: transport,
+      socket: socket,
+      method: method,
+      format: format,
+      mount: mount,
+      username: username,
+      password: password,
+      headers: headers,
+      remote_address: remote_address,
+      controller_module: controller_module,
+      controller_state: controller_state,
+      allowed_formats: allowed_formats,
+      body_timeout: body_timeout,
+      timeout_ref: timeout_ref
+    } = data
+
     # Original icecast assumes mp3 if no content-type was given
     format = format || @default_format
 
@@ -314,14 +321,16 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:tcp, _, payload},
         :body,
-        %StateData{
-          controller_module: controller_module,
-          controller_state: controller_state,
-          remote_address: remote_address,
-          body_timeout: body_timeout,
-          timeout_ref: timeout_ref
-        } = data
+        data
       ) do
+    %StateData{
+      controller_module: controller_module,
+      controller_state: controller_state,
+      remote_address: remote_address,
+      body_timeout: body_timeout,
+      timeout_ref: timeout_ref
+    } = data
+
     Process.cancel_timer(timeout_ref)
     new_timeout_ref = Process.send_after(self(), :timeout, body_timeout)
 
@@ -341,12 +350,14 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         {:tcp_closed, _},
         _state,
-        %StateData{
-          controller_module: controller_module,
-          controller_state: controller_state,
-          remote_address: remote_address
-        }
+        data
       ) do
+    %StateData{
+      controller_module: controller_module,
+      controller_state: controller_state,
+      remote_address: remote_address
+    } = data
+
     :ok = controller_module.handle_closed(remote_address, controller_state)
     {:stop, :normal}
   end
@@ -358,19 +369,23 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :info,
         :timeout,
         _state,
-        %StateData{
-          controller_module: controller_module,
-          controller_state: controller_state,
-          remote_address: remote_address
-        } = data
+        data
       ) do
+    %StateData{
+      controller_module: controller_module,
+      controller_state: controller_state,
+      remote_address: remote_address
+    } = data
+
     :ok = controller_module.handle_timeout(remote_address, controller_state)
     send_response_and_close!(502, data)
   end
 
   ## HELPERS
 
-  defp handle_request!(method, mount, %StateData{socket: socket} = data) do
+  defp handle_request!(method, mount, data) do
+    %StateData{socket: socket} = data
+
     if valid_mount?(mount) do
       :ok = activate_once(socket)
 
@@ -383,9 +398,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   defp handle_header(
          :"Content-Type" = key,
          format,
-         %StateData{socket: socket, headers: headers} = data
+         data
        )
        when format in @known_format_headers do
+    %StateData{socket: socket, headers: headers} = data
     :ok = activate_once(socket)
     format_atom = format_header_to_atom(format)
     %StateData{data | format: format_atom, headers: [{key, format} | headers]}
@@ -394,8 +410,9 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   defp handle_header(
          :Authorization = key,
          "Basic " <> credentials_encoded = val,
-         %StateData{socket: socket, headers: headers} = data
+         data
        ) do
+    %StateData{socket: socket, headers: headers} = data
     :ok = activate_once(socket)
 
     with {:ok, {username, password}} <- base64_to_credentials(credentials_encoded) do
@@ -411,7 +428,8 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     end
   end
 
-  defp handle_header(key, val, %StateData{socket: socket, headers: headers} = data) do
+  defp handle_header(key, val, data) do
+    %StateData{socket: socket, headers: headers} = data
     :ok = activate_once(socket)
     %StateData{data | headers: [{key, val} | headers]}
   end

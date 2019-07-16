@@ -165,8 +165,10 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:http, _socket, {:http_header, _, key, _, value}},
         :headers,
-        %StateData{transport: transport, socket: socket, headers: headers} = data
+        data
       ) do
+    %StateData{transport: transport, socket: socket, headers: headers} = data
+
     :ok =
       transport.setopts(socket, active: :once, packet: :httph_bin, packet_size: http_packet_size())
 
@@ -187,18 +189,20 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:http, _socket, :http_eoh},
         :headers,
-        %StateData{
-          transport: transport,
-          socket: socket,
-          mount: mount,
-          headers: headers,
-          remote_address: remote_address,
-          controller_module: controller_module,
-          controller_state: controller_state,
-          timeout_ref: timeout_ref,
-          body_timeout: body_timeout
-        } = data
+        data
       ) do
+    %StateData{
+      transport: transport,
+      socket: socket,
+      mount: mount,
+      headers: headers,
+      remote_address: remote_address,
+      controller_module: controller_module,
+      controller_state: controller_state,
+      timeout_ref: timeout_ref,
+      body_timeout: body_timeout
+    } = data
+
     Process.cancel_timer(timeout_ref)
 
     case controller_module.handle_listener(remote_address, mount, headers, controller_state) do
@@ -226,12 +230,14 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:tcp_closed, _},
         _state,
-        %StateData{
-          controller_module: controller_module,
-          controller_state: controller_state,
-          remote_address: remote_address
-        }
+        data
       ) do
+    %StateData{
+      controller_module: controller_module,
+      controller_state: controller_state,
+      remote_address: remote_address
+    } = data
+
     :ok = controller_module.handle_closed(remote_address, controller_state)
     {:stop, :normal}
   end
@@ -242,13 +248,15 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         {:payload, payload},
         :body,
-        %StateData{
-          transport: transport,
-          body_timeout: body_timeout,
-          socket: socket,
-          timeout_ref: tref
-        } = data
+        data
       ) do
+    %StateData{
+      transport: transport,
+      body_timeout: body_timeout,
+      socket: socket,
+      timeout_ref: tref
+    } = data
+
     Process.cancel_timer(tref)
     tref = Process.send_after(self(), :timeout, body_timeout)
     :ok = transport.send(socket, payload)
@@ -262,19 +270,23 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
         :info,
         :timeout,
         _state,
-        %StateData{
-          controller_module: controller_module,
-          controller_state: controller_state,
-          remote_address: remote_address
-        } = data
+        data
       ) do
+    %StateData{
+      controller_module: controller_module,
+      controller_state: controller_state,
+      remote_address: remote_address
+    } = data
+
     :ok = controller_module.handle_timeout(remote_address, controller_state)
     send_response_and_close!(502, data)
   end
 
   ## HELPERS
 
-  defp handle_request!(mount, %StateData{socket: socket} = data) do
+  defp handle_request!(mount, data) do
+    %StateData{socket: socket} = data
+
     if valid_mount?(mount) do
       :ok = activate_once(socket)
 
