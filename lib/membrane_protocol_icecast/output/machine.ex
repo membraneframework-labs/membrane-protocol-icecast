@@ -9,6 +9,16 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   # Maximum amount of headers while reading HTTP part of the protocol
   @http_max_headers 64
 
+  @type opts :: %{
+          socket: Transport.socket(),
+          transport: Transport.t(),
+          controller_module: Output.Controller.t(),
+          controller_arg: any(),
+          server_string: String.t(),
+          request_timeout: integer(),
+          body_timeout: integer()
+        }
+
   defmodule StateData do
     defstruct controller_module: nil,
               controller_state: nil,
@@ -24,15 +34,7 @@ defmodule Membrane.Protocol.Icecast.Output.Machine do
   end
 
   @impl true
-  @spec init(%{
-          socket: Transport.socket(),
-          transport: Transport.t(),
-          controller_module: Output.Controller.t(),
-          controller_arg: any(),
-          server_string: String.t(),
-          request_timeout: integer(),
-          body_timeout: integer()
-        }) :: no_return
+  @spec init(opts()) :: no_return
   def init(
         %{
           socket: socket,
