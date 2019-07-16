@@ -210,10 +210,10 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
         :headers,
         %StateData{headers: headers} = data
       )
-  when length(headers) >
-         @http_max_headers do
-           shutdown_invalid!(:too_many_headers, data)
-         end
+      when length(headers) >
+             @http_max_headers do
+    shutdown_invalid!(:too_many_headers, data)
+  end
 
   # Handle correct header event
   @impl true
@@ -274,7 +274,6 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
 
     # Original icecast assumes mp3 if no content-type was given
     format = format || @default_format
-
     Process.cancel_timer(timeout_ref)
     new_timeout_ref = Process.send_after(self(), :timeout, body_timeout)
 
@@ -438,17 +437,11 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
   defp format_header_to_atom("audio/ogg"), do: :ogg
 
   defp base64_to_credentials(credentials_encoded) do
-    case Base.decode64(credentials_encoded) do
-      {:ok, credentials} ->
-        case String.split(credentials, ":", parts: 2) do
-          [username, password] ->
-            {:ok, {username, password}}
-
-          _ ->
-            :error
-        end
-
-      :error ->
+    with {:ok, credentials} <- Base.decode64(credentials_encoded),
+         [username, password] <- String.split(credentials, ":", parts: 2) do
+      {:ok, {username, password}}
+    else
+      _ ->
         :error
     end
   end
