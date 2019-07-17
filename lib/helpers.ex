@@ -106,11 +106,7 @@ defmodule Membrane.Protocol.Icecast.Helpers do
 
     allowed_methods_header =
       allowed_methods
-      |> Enum.map(fn
-        :put -> "PUT"
-        :source -> "SOURCE"
-        :get -> "GET"
-      end)
+      |> Enum.map(&method_to_string/1)
       |> Enum.join(", ")
 
     send_response_and_close!(405, [{"Allow", allowed_methods_header}], data)
@@ -161,4 +157,8 @@ defmodule Membrane.Protocol.Icecast.Helpers do
     me = inspect(self())
     Logger.debug("(#{me}) #{msg}")
   end
+
+  defp method_to_string(:put), do: "PUT"
+  defp method_to_string(:source), do: "SOURCE"
+  defp method_to_string(:get), do: "GET"
 end
