@@ -414,16 +414,17 @@ defmodule Membrane.Protocol.Icecast.Input.Machine do
     %StateData{socket: socket, headers: headers} = data
     :ok = activate_once(socket)
 
+    data = %StateData{data | headers: [{key, val} | headers]}
+
     with {:ok, {username, password}} <- base64_to_credentials(credentials_encoded) do
       %StateData{
         data
         | username: username,
-          password: password,
-          headers: [{key, val} | headers]
+          password: password
       }
     else
       _ ->
-        %StateData{data | username: nil, password: nil, headers: [{key, val} | headers]}
+        %StateData{data | username: nil, password: nil}
     end
   end
 
